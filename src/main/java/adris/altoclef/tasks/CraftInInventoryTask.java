@@ -89,9 +89,16 @@ public class CraftInInventoryTask extends ResourceTask {
         // No need to free inventory, output gets picked up.
 
         setDebugState("Crafting in inventory... for " + toGet);
-        return mod.getModSettings().shouldUseCraftingBookToCraft()
-                ? new CraftGenericWithRecipeBooksTask(_target)
-                : new CraftGenericManuallyTask(_target);
+        // Recipe book only if the game's recipe was found and is unlocked, otherwise craft by hand
+        // (before, the recipe book task waited forever when no recipe matched).
+        if (mod.getModSettings().shouldUseCraftingBookToCraft()) {
+            var recipeToSend = adris.altoclef.util.GameRecipeLookup.find(_target.getRecipe(), _target.getOutputItem());
+            var player = net.minecraft.client.MinecraftClient.getInstance().player;
+            if (recipeToSend.isPresent() && player != null && player.getRecipeBook().contains(recipeToSend.get().id())) {
+                return new CraftGenericWithRecipeBooksTask(_target);
+            }
+        }
+        return new CraftGenericManuallyTask(_target);
     }
 
     @Override

@@ -1,21 +1,26 @@
 package adris.altoclef.trackers;
 
 import adris.altoclef.AltoClef;
-import adris.altoclef.multiversion.recipemanager.RecipeManagerWrapper;
-import adris.altoclef.multiversion.recipemanager.WrappedRecipeEntry;
+import adris.altoclef.recipes.Recipe;
+import adris.altoclef.recipes.RecipeRegistry;
+import adris.altoclef.recipes.Station;
+import adris.altoclef.util.LegacyRecipeAdapter;
 import adris.altoclef.util.RecipeTarget;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.recipe.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
-// TODO remove those ugly "ensureUpdate" statements, realistically we only need to update only upon joining a world
+/**
+ * Old recipe lookup by output item, now backed by the new recipe registry (see docs/recipe-model.md).
+ * Keeps its interface until the callers move to the new model (roadmap 2.5).
+ */
 public class CraftingRecipeTracker extends Tracker{
 
 
@@ -91,80 +96,38 @@ public class CraftingRecipeTracker extends Tracker{
     }
 
 
+    /**
+     * Built from the new {@link adris.altoclef.recipes.RecipeRegistry} (game recipes, local fallback otherwise),
+     * converted to the old grid format with the real recipe shape and all allowed items per slot.
+     */
     @Override
     protected void updateState() {
         if (!shouldRebuild) return;
 
-        // rebuild once we are in game
+        // rebuild once we are in game and the game's recipes arrived (or the fallback is all we get)
         if (!AltoClef.inGame()) return;
+        RecipeRegistryTracker registryTracker = mod.getRecipeRegistryTracker();
+        if (registryTracker == null || !registryTracker.hasGameRecipes()) return;
+        RecipeRegistry registry = registryTracker.getRegistry();
 
-        ClientPlayNetworkHandler networkHandler =  MinecraftClient.getInstance().getNetworkHandler();
-        if (networkHandler == null) return;
-
-        RecipeManagerWrapper recipeManager = RecipeManagerWrapper.of(networkHandler.getRecipeManager());
-
-        for (WrappedRecipeEntry recipe : recipeManager.values()) {
-            if (!(recipe.value() instanceof net.minecraft.recipe.CraftingRecipe craftingRecipe)) continue;
-
-            // not implemented for now because it isn't needed (I hope xd)
-            if (craftingRecipe instanceof SpecialCraftingRecipe) continue;
-
-            // the arguments shouldn't be used, we can just pass null
-            ItemStack result = new ItemStack(craftingRecipe.getResult(null).getItem(), craftingRecipe.getResult(null).getCount());
-
-            Item[][] altoclefRecipeItems = getShapedCraftingRecipe(craftingRecipe.getIngredients());
-
-            adris.altoclef.util.CraftingRecipe altoclefRecipe = adris.altoclef.util.CraftingRecipe.newShapedRecipe(altoclefRecipeItems, result.getCount());
-
-            if (itemRecipeMap.containsKey(result.getItem())) {
-                itemRecipeMap.get(result.getItem()).add(altoclefRecipe);
-            } else {
-                List<adris.altoclef.util.CraftingRecipe> recipes = new ArrayList<>();
-                recipes.add(altoclefRecipe);
-
-                itemRecipeMap.put(result.getItem(), recipes);
+        Set<String> outputs = new LinkedHashSet<>();
+        for (Recipe recipe : registry.all()) {
+            if (recipe.station() == Station.CRAFTING) outputs.add(recipe.output().item());
+        }
+        for (String output : outputs) {
+            Optional<Item> outputItem = LegacyRecipeAdapter.item(output);
+            if (outputItem.isEmpty()) continue;
+            for (Recipe recipe : registry.byOutput(output, Station.CRAFTING)) {
+                Optional<adris.altoclef.util.CraftingRecipe> legacy = LegacyRecipeAdapter.toLegacy(recipe);
+                if (legacy.isEmpty()) continue;
+                itemRecipeMap.computeIfAbsent(outputItem.get(), k -> new ArrayList<>()).add(legacy.get());
+                recipeResultMap.put(legacy.get(), new ItemStack(outputItem.get(), recipe.output().count()));
             }
-
-            recipeResultMap.put(altoclefRecipe, result);
         }
 
         itemRecipeMap.replaceAll((k,v) -> Collections.unmodifiableList(v));
 
         shouldRebuild = false;
-    }
-
-    // TODO adjust for small recipes
-    // it is always shaped, but that doesn't matter for shapeless
-    // the second dimension of the array is for different types of items (eq. logs)
-    private static Item[][] getShapedCraftingRecipe(List<Ingredient> ingredients) {
-        Item[][] result = new Item[9][];
-        int x = 0;
-
-        for (Ingredient ingredient : ingredients) {
-            ItemStack[] stacks = ingredient.getMatchingStacks();
-            Item[] items = new Item[stacks.length];
-
-            for (int i = 0; i < stacks.length; i++) {
-                ItemStack stack = stacks[i];
-                if (stack.getCount() > 1) {
-                    throw new IllegalStateException("recipe needs more then one item on a slot... well... shit (ingredients: " + ingredient + ")");
-                }
-
-                items[i] = stack.getItem();
-            }
-
-            if (stacks.length != 0) {
-                // FIXME this is so stupid, but TaskCatalogue is kinda setup this way, so it would require a rewrite to allow for multiple resource :')
-                result[x] = new Item[]{items[0]};
-            } else {
-                result[x] = null;
-            }
-
-            x++;
-        }
-
-
-        return result;
     }
 
     @Override

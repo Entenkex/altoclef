@@ -18,13 +18,15 @@ public class CraftingHelper {
      * checks if the bot can acquire item just from stuff in his inventory through crafting (crafting can include multiple steps, like turning a log into sticks)
      */
     public static boolean canCraftItemNow(AltoClef mod, Item item) {
+        // Before joining / before recipes arrived there is no recipe (getRecipeForItem would return null).
+        if (!mod.getCraftingRecipeTracker().hasRecipeForItem(item)) return false;
         List<ItemStack> inventoryItems = new ArrayList<>();
         for (ItemStack stack : mod.getItemStorage().getItemStacksPlayerInventory(true)) {
             inventoryItems.add(new ItemStack(stack.getItem(), stack.getCount()));
         }
 
         for (CraftingRecipe recipe : mod.getCraftingRecipeTracker().getRecipeForItem(item)) {
-            if (canCraftItemNow(mod, new ArrayList<>(inventoryItems), recipe, new HashSet<>())) {
+            if (canCraftItemNow(mod, copyStacks(inventoryItems), recipe, new HashSet<>())) {
                 return true;
             }
         }
@@ -68,7 +70,7 @@ public class CraftingHelper {
                 if (!mod.getCraftingRecipeTracker().hasRecipeForItem(item)) continue;
 
                 for (CraftingRecipe newRecipe : mod.getCraftingRecipeTracker().getRecipeForItem(item)) {
-                    List<ItemStack> inventoryStacksCopy = new ArrayList<>(inventoryStacks);
+                    List<ItemStack> inventoryStacksCopy = copyStacks(inventoryStacks);
                     if (canCraftItemNow(mod, inventoryStacksCopy, newRecipe, new HashSet<>(alreadyChecked))) {
 
                         // this is the inventory we are now left with
@@ -91,4 +93,14 @@ public class CraftingHelper {
         return true;
     }
 
+
+    /**
+     * Copies the list AND the stacks: trying a recipe changes stack counts, which must not leak into
+     * the other branches (before, only the list was copied and the counts were shared).
+     */
+    private static List<ItemStack> copyStacks(List<ItemStack> stacks) {
+        List<ItemStack> copy = new ArrayList<>(stacks.size());
+        for (ItemStack stack : stacks) copy.add(new ItemStack(stack.getItem(), stack.getCount()));
+        return copy;
+    }
 }

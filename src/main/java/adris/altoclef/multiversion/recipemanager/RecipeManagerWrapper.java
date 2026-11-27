@@ -24,6 +24,19 @@ public class RecipeManagerWrapper {
         this.recipeManager = recipeManager;
     }
 
+    /**
+     * The recipe with this id, if the client knows it.
+     */
+    //#if MC>12001
+    public java.util.Optional<WrappedRecipeEntry> get(Identifier id) {
+        return recipeManager.get(id).map(r -> new WrappedRecipeEntry(r.id(), r.value()));
+    }
+    //#else
+    //$$ public java.util.Optional<WrappedRecipeEntry> get(Identifier id) {
+    //$$    return recipeManager.get(id).map(r -> new WrappedRecipeEntry(id, r));
+    //$$ }
+    //#endif
+
     //#if MC>12001
     public Collection<WrappedRecipeEntry> values() {
         return recipeManager.values().stream().map(r -> new WrappedRecipeEntry(r.id(),r.value())).collect(Collectors.toSet());
