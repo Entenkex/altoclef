@@ -20,6 +20,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      # The preprocessor plugin (git submodule, built from source) needs a Java 8 toolchain.
+      - name: Set up JDK 8
+        uses: actions/setup-java@v2
+        with:
+          java-version: '8'
+          distribution: 'temurin'
 
       - name: Set up JDK 21
         uses: actions/setup-java@v2
@@ -38,7 +47,7 @@ jobs:
           fi
 
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew build -Porg.gradle.java.installations.fromEnv=JAVA_HOME_8_X64
 
       - name: Create artifact directory structure
         run: |
