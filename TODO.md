@@ -44,6 +44,10 @@ Now (package `adris.altoclef.settings`, branch `feature/settings`):
 - [x] Unknown keys in a profile are reported (typos).
 - [x] In-game commands `@setting [key|group] [value|reset]` and `@profile [name | new <name>]`,
       tab completion, one formatted chat message per listing, readable error texts.
+- [x] Baritone-style commands: `@set [name [value]]` (alias `@setting`), `@set list [page|text]`,
+      `@modified [page]`, `@reset <name|all>`, `@toggle <name>`; short names (`autoEat` for
+      `core.autoEat`, any case, full key required only if ambiguous); paged listings;
+      context-aware tab completion for the second argument. Not tested in-game yet.
 - [x] Migrated all 5 JSON configs (88 settings); one-time import of old JSON values into `default.yml`.
 - [x] Removed the old JSON config code (`ConfigHelper` only keeps the butler list files).
 - [x] `core.showStackTracesInChat` (stack traces of errors in chat only when enabled).

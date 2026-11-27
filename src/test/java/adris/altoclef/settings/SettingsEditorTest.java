@@ -175,4 +175,68 @@ class SettingsEditorTest {
         assertEquals("default: 14, min: 0, max: 64", lines.get(1));
         assertEquals("How many eyes.", lines.get(2));
     }
+
+    // ------------------------------------------------------------------ Baritone-style names and commands
+
+    @Test
+    void shortNamesAndAnyCaseFindTheSetting() throws Exception {
+        assertSame(autoEat, editor.find("autoEat").orElseThrow());
+        assertSame(autoEat, editor.find("AUTOEAT").orElseThrow());
+        assertSame(autoEat, editor.find("Core.AutoEat").orElseThrow());
+        assertTrue(editor.find("nothing").isEmpty());
+
+        SettingsEditor.Change change = editor.set("targeteyes", "20");
+        assertEquals("beatMinecraft.targetEyes", change.key());
+        assertEquals(20, eyes.get());
+        assertTrue(profileText("default").contains("targetEyes: 20"));
+    }
+
+    @Test
+    void ambiguousShortNameAsksForFullName() {
+        Setting<Boolean> other = Setting.bool("butler.autoEat", false).register(manager);
+
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> editor.find("autoEat"));
+        assertTrue(e.getMessage().contains("butler.autoEat") && e.getMessage().contains("core.autoEat"), e.getMessage());
+        assertSame(other, editor.find("butler.autoEat").orElseThrow());
+        assertEquals("core.autoEat", editor.displayName(autoEat));
+        assertEquals("targetEyes", editor.displayName(eyes));
+    }
+
+    @Test
+    void namesContainShortAndFullNames() {
+        List<String> names = editor.names();
+        assertTrue(names.contains("autoEat"));
+        assertTrue(names.contains("core.autoEat"));
+        assertEquals(List.of("autoEat"), editor.booleanNames());
+        assertEquals(List.of("beatMinecraft", "core"), editor.groups());
+    }
+
+    @Test
+    void toggleFlipsBooleansOnly() throws Exception {
+        editor.toggle("autoEat");
+        assertFalse(autoEat.get());
+        editor.toggle("autoEat");
+        assertTrue(autoEat.get());
+
+        assertThrows(IllegalArgumentException.class, () -> editor.toggle("targetEyes"));
+    }
+
+    @Test
+    void resetAllClearsOnlyTheActiveProfile() throws Exception {
+        editor.set("autoEat", "false");
+        editor.createProfile("pvp", "default");
+        editor.set("targetEyes", "30");
+        editor.set("chatLogPrefix", "x");
+
+        assertEquals(2, editor.resetAll());
+        assertEquals(14, eyes.get());
+        assertFalse(autoEat.get(), "value from the extended profile stays");
+        assertTrue(profileText("pvp").contains("extends: default"));
+        assertEquals(0, editor.resetAll());
+    }
+
+    @Test
+    void searchMatchesPartOfTheName() {
+        assertEquals(List.of(chatPrefix, logLevel), editor.search("LOG"));
+    }
 }

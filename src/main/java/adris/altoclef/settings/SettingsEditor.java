@@ -63,8 +63,9 @@ public final class SettingsEditor {
     /**
      * Sets a value in the active profile file and reloads.
      */
-    public Change set(String key, String raw) throws IOException {
-        Setting<?> setting = require(key);
+    public Change set(String name, String raw) throws IOException {
+        Setting<?> setting = require(name);
+        String key = setting.getKey();
         JsonNode node = parseValue(setting, raw);
 
         SettingsManager.Preview preview = manager.preview(key, node);
@@ -84,11 +85,43 @@ public final class SettingsEditor {
     /**
      * Removes the value from the active profile, so it falls back to the profile it extends / the default.
      */
-    public Change reset(String key) throws IOException {
-        Setting<?> setting = require(key);
-        store.setValue(store.getActiveProfile(), key, null);
+    public Change reset(String name) throws IOException {
+        Setting<?> setting = require(name);
+        store.setValue(store.getActiveProfile(), setting.getKey(), null);
         reload.run();
-        return new Change(key, format(setting), List.of());
+        return new Change(setting.getKey(), format(setting), List.of());
+    }
+
+    /**
+     * Flips a true/false setting and saves it.
+     */
+    public Change toggle(String name) throws IOException {
+        Setting<?> setting = require(name);
+        if (setting.getType() != Boolean.class) {
+            throw new IllegalArgumentException(setting.getKey() + " is not a true/false setting");
+        }
+        return set(setting.getKey(), String.valueOf(!((Boolean) setting.get())));
+    }
+
+    /**
+     * Removes all values from the active profile file (the profile it extends stays untouched).
+     *
+     * @return how many values were removed
+     */
+    public int resetAll() throws IOException {
+        String profile = store.getActiveProfile();
+        List<String> ignored = new ArrayList<>();
+        int count = countLeaves(store.resolveOwn(profile, ignored));
+        store.writeProfile(profile, store.getParent(profile), manager.getMapper().createObjectNode());
+        reload.run();
+        return count;
+    }
+
+    private static int countLeaves(JsonNode node) {
+        if (node == null || !node.isObject()) return node == null ? 0 : 1;
+        int count = 0;
+        for (JsonNode child : node) count += countLeaves(child);
+        return count;
     }
 
     // ------------------------------------------------------------------ profiles
@@ -131,18 +164,93 @@ public final class SettingsEditor {
 
     // ------------------------------------------------------------------ display
 
-    public Optional<Setting<?>> find(String key) {
-        return manager.find(key);
+    /**
+     * Finds a setting by full key ({@code core.autoEat}) or short name ({@code autoEat}), ignoring case.
+     *
+     * @throws IllegalArgumentException if a short name matches settings in more than one group
+     */
+    public Optional<Setting<?>> find(String name) {
+        Optional<Setting<?>> exact = manager.find(name);
+        if (exact.isPresent()) return exact;
+        List<Setting<?>> matches = new ArrayList<>();
+        for (Setting<?> setting : manager.getAll()) {
+            if (setting.getKey().equalsIgnoreCase(name)) return Optional.of(setting);
+            if (shortOf(setting.getKey()).equalsIgnoreCase(name)) matches.add(setting);
+        }
+        if (matches.size() > 1) {
+            throw new IllegalArgumentException("\"" + name + "\" is ambiguous, use the full name: "
+                    + String.join(", ", matches.stream().map(Setting::getKey).sorted().toList()));
+        }
+        return matches.stream().findFirst();
+    }
+
+    /**
+     * Name to show and type in chat: the short name if it is unique, else the full key.
+     */
+    public String displayName(Setting<?> setting) {
+        String shortName = shortOf(setting.getKey());
+        long same = manager.getAll().stream().filter(s -> shortOf(s.getKey()).equalsIgnoreCase(shortName)).count();
+        return same == 1 ? shortName : setting.getKey();
+    }
+
+    /**
+     * All names that can be typed: unique short names and full keys, sorted.
+     */
+    public List<String> names() {
+        List<String> names = new ArrayList<>();
+        for (Setting<?> setting : manager.getAll()) {
+            String display = displayName(setting);
+            names.add(display);
+            if (!display.equals(setting.getKey())) names.add(setting.getKey());
+        }
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        return names;
+    }
+
+    /**
+     * Names of all true/false settings (for tab completion of toggle).
+     */
+    public List<String> booleanNames() {
+        return manager.getAll().stream().filter(s -> s.getType() == Boolean.class)
+                .map(this::displayName).sorted(String.CASE_INSENSITIVE_ORDER).toList();
+    }
+
+    public List<String> groups() {
+        return keys().stream().map(k -> k.indexOf('.') < 0 ? k : k.substring(0, k.indexOf('.'))).distinct().toList();
+    }
+
+    /**
+     * Settings whose name or description contains {@code text}, ignoring case.
+     */
+    public List<Setting<?>> search(String text) {
+        String lower = text.toLowerCase();
+        List<Setting<?>> result = new ArrayList<>();
+        for (Setting<?> setting : manager.getAll()) {
+            if (setting.getKey().toLowerCase().contains(lower)) result.add(setting);
+        }
+        result.sort((a, b) -> a.getKey().compareTo(b.getKey()));
+        return result;
+    }
+
+    public List<Setting<?>> all() {
+        List<Setting<?>> result = new ArrayList<>(manager.getAll());
+        result.sort((a, b) -> a.getKey().compareTo(b.getKey()));
+        return result;
+    }
+
+    private static String shortOf(String key) {
+        int dot = key.lastIndexOf('.');
+        return dot < 0 ? key : key.substring(dot + 1);
     }
 
     /**
      * All settings whose key starts with {@code prefix} (e.g. "core" or "beatMinecraft.").
      */
     public List<Setting<?>> findByPrefix(String prefix) {
-        String normalized = prefix.endsWith(".") ? prefix : prefix + ".";
+        String normalized = (prefix.endsWith(".") ? prefix : prefix + ".").toLowerCase();
         List<Setting<?>> result = new ArrayList<>();
         for (Setting<?> setting : manager.getAll()) {
-            if (setting.getKey().startsWith(normalized)) result.add(setting);
+            if (setting.getKey().toLowerCase().startsWith(normalized)) result.add(setting);
         }
         result.sort((a, b) -> a.getKey().compareTo(b.getKey()));
         return result;
@@ -194,8 +302,8 @@ public final class SettingsEditor {
         return node.toString();
     }
 
-    private Setting<?> require(String key) {
-        return manager.find(key).orElseThrow(() -> new IllegalArgumentException("Unknown setting: " + key));
+    private Setting<?> require(String name) {
+        return find(name).orElseThrow(() -> new IllegalArgumentException("Unknown setting: " + name));
     }
 
     private static String unquote(String text) {

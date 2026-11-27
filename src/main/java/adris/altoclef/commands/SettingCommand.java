@@ -2,63 +2,97 @@ package adris.altoclef.commands;
 
 import adris.altoclef.AltoClef;
 import adris.altoclef.commandsystem.ArgParser;
-import adris.altoclef.commandsystem.Command;
 import adris.altoclef.commandsystem.args.RestOfLineArg;
-import adris.altoclef.commandsystem.args.SuggestingStringArg;
 import adris.altoclef.commandsystem.exception.CommandException;
 import adris.altoclef.settings.Setting;
 import adris.altoclef.settings.SettingsEditor;
-import adris.altoclef.settings.SettingsService;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * Shows and changes settings of the active profile.
+ * Shows and changes settings of the active profile, similar to Baritone's {@code #set}.
+ * Names can be short ({@code autoEat}) or full ({@code core.autoEat}), case does not matter.
  * <pre>
- * setting                         changed settings of the active profile
- * setting core                    all settings starting with "core."
- * setting core.autoEat            value, default, limits, description
- * setting core.autoEat false      set and save into the active profile
- * setting core.autoEat reset      remove from the profile (back to inherited / default)
+ * set                       all settings, page 1
+ * set list [page|text]      all settings (page), or those whose name contains the text
+ * set modified [page]       settings that differ from the defaults
+ * set &lt;group&gt;               all settings of a group, e.g. "set core"
+ * set &lt;name&gt;                value, default, limits, description
+ * set &lt;name&gt; &lt;value&gt;        set and save into the active profile
+ * set reset &lt;name|all&gt;      remove from the profile (back to inherited / default)
+ * set toggle &lt;name&gt;         flip a true/false setting
  * </pre>
+ * {@code modified}, {@code reset} and {@code toggle} also exist as commands of their own.
  */
-public class SettingCommand extends Command {
+public class SettingCommand extends SettingsCommandBase {
 
-    private static final String RESET = "reset";
+    private static final List<String> SUBCOMMANDS = List.of("list", "modified", "reset", "toggle");
+
+    private final RememberingArg first;
 
     public SettingCommand() {
-        super("setting", "Show or change settings: setting [key] [value|reset]",
-                new SuggestingStringArg("key", "", SettingCommand::keySuggestions),
-                new RestOfLineArg("value", "", () -> Stream.of(RESET, "true", "false")));
+        this(new RememberingArg("name", SettingCommand::firstSuggestions));
     }
 
-    private static Stream<String> keySuggestions() {
-        List<String> keys = SettingsService.editor().keys();
-        Stream<String> groups = keys.stream().map(k -> k.substring(0, k.indexOf('.') < 0 ? k.length() : k.indexOf('.'))).distinct();
-        return Stream.concat(groups, keys.stream());
+    private SettingCommand(RememberingArg first) {
+        super(List.of("set", "setting"), "Show or change settings (like Baritone): set [name [value]] | set list|modified|reset|toggle ...",
+                first, new RestOfLineArg("value", "", () -> secondSuggestions(first.last())));
+        this.first = first;
+    }
+
+    private static Stream<String> firstSuggestions() {
+        return Stream.of(SUBCOMMANDS.stream(), editor().groups().stream(), nameSuggestions()).flatMap(s -> s);
+    }
+
+    private static Stream<String> secondSuggestions(String first) {
+        SettingsEditor editor = editor();
+        switch (first.toLowerCase()) {
+            case "reset":
+                return Stream.concat(Stream.of("all"), editor.nonDefault().stream().map(editor::displayName));
+            case "toggle":
+                return editor.booleanNames().stream();
+            case "list":
+                return editor.groups().stream();
+            case "modified":
+                return Stream.empty();
+            default:
+                try {
+                    Optional<Setting<?>> setting = editor.find(first);
+                    if (setting.isEmpty()) return Stream.empty();
+                    if (setting.get().getType() == Boolean.class) return Stream.of("true", "false", "reset");
+                    return Stream.of(editor.format(setting.get()), "reset");
+                } catch (IllegalArgumentException ambiguous) {
+                    return Stream.empty();
+                }
+        }
     }
 
     @Override
     protected void call(AltoClef mod, ArgParser parser) throws CommandException {
-        String key = parser.get(String.class);
+        String name = parser.get(String.class);
         String value = parser.get(String.class);
-        SettingsEditor editor = SettingsService.editor();
+        SettingsEditor editor = editor();
 
         try {
-            if (key.isEmpty()) {
-                showChanged(editor);
-            } else if (value.isEmpty()) {
-                show(editor, key);
-            } else if (value.equalsIgnoreCase(RESET)) {
-                SettingsEditor.Change change = editor.reset(key);
-                log(KEY + change.key() + DIM + " = " + VALUE + change.value() + DIM + " (removed from profile \"" + editor.getActiveProfile() + "\")");
-            } else {
-                SettingsEditor.Change change = editor.set(key, value);
-                log(KEY + change.key() + DIM + " = " + VALUE + change.value() + DIM + " (saved in profile \"" + editor.getActiveProfile() + "\")");
-                change.warnings().forEach(this::logUserError);
+            switch (name.toLowerCase()) {
+                case "", "list" -> list(mod, value);
+                case "modified" -> modified(mod, value);
+                case "reset" -> {
+                    if (value.isEmpty()) logUserError("Usage: " + prefix(mod) + "set reset <name|all>");
+                    else reset(mod, value);
+                }
+                case "toggle" -> {
+                    if (value.isEmpty()) logUserError("Usage: " + prefix(mod) + "set toggle <name>");
+                    else toggle(value);
+                }
+                default -> {
+                    if (value.isEmpty()) show(mod, name);
+                    else if (value.equalsIgnoreCase("reset")) reset(mod, name);
+                    else set(name, value);
+                }
             }
         } catch (IllegalArgumentException e) {
             logUserError(e.getMessage());
@@ -68,67 +102,26 @@ public class SettingCommand extends Command {
         finish();
     }
 
-    // Chat colors (section sign codes)
-    private static final String KEY = "\u00A7f";
-    private static final String VALUE = "\u00A7b";
-    private static final String CHANGED = "\u00A7e";
-    private static final String DIM = "\u00A77";
-    private static final String HEADER = "\u00A7a";
-
-    private void showChanged(SettingsEditor editor) {
-        List<Setting<?>> changed = editor.nonDefault();
-        List<String> lines = new ArrayList<>();
-        for (Setting<?> setting : changed) {
-            lines.add("  " + KEY + setting.getKey() + DIM + " = " + CHANGED + shorten(editor.format(setting)));
-        }
-        lines.add(DIM + "setting <key|group> [value|reset]  -  groups: " + String.join(", ", groups(editor)));
-        logLines(HEADER + "Profile \"" + editor.getActiveProfile() + "\": " + changed.size() + " of "
-                + editor.keys().size() + " settings changed", lines);
-    }
-
-    private void show(SettingsEditor editor, String key) {
-        var exact = editor.find(key);
-        if (exact.isPresent()) {
-            List<String> description = editor.describe(exact.get());
-            List<String> lines = new ArrayList<>();
-            for (int i = 1; i < description.size(); i++) {
-                lines.add(DIM + "  " + description.get(i));
-            }
-            String head = description.get(0);
-            int eq = head.indexOf(" = ");
-            logLines(KEY + head.substring(0, eq) + DIM + " = " + VALUE + head.substring(eq + 3), lines);
+    private void list(AltoClef mod, String arg) {
+        SettingsEditor editor = editor();
+        int page = parsePage(arg);
+        if (page > 0) {
+            listPage(mod, "Settings", editor.all(), page, "set list");
             return;
         }
-        List<Setting<?>> group = editor.findByPrefix(key);
-        if (!group.isEmpty()) {
-            String prefix = key.endsWith(".") ? key : key + ".";
-            List<String> lines = new ArrayList<>();
-            int changed = 0;
-            for (Setting<?> setting : group) {
-                boolean isDefault = setting.isDefault();
-                if (!isDefault) changed++;
-                lines.add("  " + KEY + setting.getKey().substring(prefix.length()) + DIM + " = "
-                        + (isDefault ? VALUE : CHANGED) + shorten(editor.format(setting)) + (isDefault ? "" : " *"));
-            }
-            lines.add(DIM + CHANGED + "*" + DIM + " = changed in this profile. Full value and help: setting " + prefix + "<name>");
-            logLines(HEADER + prefix.substring(0, prefix.length() - 1) + DIM + " (" + group.size() + " settings, "
-                    + changed + " changed)", lines);
+        // "list core" or "list core 2": filter by text, optional page at the end
+        String filter = arg;
+        int filterPage = 1;
+        int space = arg.lastIndexOf(' ');
+        if (space > 0 && parsePage(arg.substring(space + 1)) > 0) {
+            filter = arg.substring(0, space).strip();
+            filterPage = parsePage(arg.substring(space + 1));
+        }
+        List<Setting<?>> found = editor.search(filter);
+        if (found.isEmpty()) {
+            logUserError("No setting contains \"" + filter + "\"");
             return;
         }
-        String lower = key.toLowerCase();
-        List<String> similar = editor.keys().stream().filter(k -> k.toLowerCase().contains(lower)).limit(10).toList();
-        logUserError("Unknown setting: " + key + (similar.isEmpty() ? "" : ". Did you mean: " + String.join(", ", similar)));
-    }
-
-    private static List<String> groups(SettingsEditor editor) {
-        return editor.keys().stream().map(k -> k.substring(0, k.indexOf('.') < 0 ? k.length() : k.indexOf('.'))).distinct().toList();
-    }
-
-    /**
-     * Keeps group listings readable: long values (e.g. item lists) are cut off.
-     */
-    private static String shorten(String value) {
-        int max = 60;
-        return value.length() <= max ? value : value.substring(0, max - 3) + "...";
+        listPage(mod, "Settings containing \"" + filter + "\"", found, filterPage, "set list " + filter);
     }
 }

@@ -175,6 +175,22 @@ public final class ProfileStore {
     }
 
     /**
+     * The {@code settings} tree of this profile file alone, without the profiles it extends.
+     * Empty if the file is missing or unreadable (the problem goes to {@code warnings}).
+     */
+    public ObjectNode resolveOwn(String name, List<String> warnings) {
+        Path file = getProfileFile(name);
+        if (!Files.exists(file)) return yaml.createObjectNode();
+        try {
+            JsonNode settings = yaml.readTree(file.toFile()).path("settings");
+            return settings instanceof ObjectNode o ? o : yaml.createObjectNode();
+        } catch (IOException e) {
+            warnings.add("Could not read profile \"" + name + "\": " + shortError(e));
+            return yaml.createObjectNode();
+        }
+    }
+
+    /**
      * One-line description of a read/parse error, e.g. "expected the node content, but found '<stream end>' (line 2, column 1)".
      */
     static String shortError(IOException e) {
