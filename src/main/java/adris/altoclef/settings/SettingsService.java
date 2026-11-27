@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
@@ -53,6 +54,9 @@ public final class SettingsService {
     private static boolean onlyNewWarnings = false;
 
     private static volatile boolean lastLoadFailed = false;
+
+    // Warnings from loads without an open world (game start), shown once in chat on joining a world.
+    private static final StartupWarnings STARTUP_WARNINGS = new StartupWarnings();
 
     private SettingsService() {
     }
@@ -105,6 +109,7 @@ public final class SettingsService {
     public static synchronized void load(boolean onlyNewWarnings) {
         SettingsService.onlyNewWarnings = onlyNewWarnings;
         currentWarnings = new HashSet<>();
+        STARTUP_WARNINGS.clear();
         try {
             loadInternal();
         } finally {
@@ -116,11 +121,28 @@ public final class SettingsService {
 
     private static void report(String warning) {
         if (currentWarnings != null) currentWarnings.add(warning);
+        if (!inWorld()) STARTUP_WARNINGS.add(warning);
         if (onlyNewWarnings && shownWarnings.contains(warning)) {
             Debug.logInternal("Settings (already shown): " + warning);
             return;
         }
         Debug.logWarning(warning);
+    }
+
+    private static boolean inWorld() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        return client != null && client.player != null;
+    }
+
+    /**
+     * Call every client tick: once a world is open, shows the warnings collected while there was none
+     * (one chat message). Respects {@code core.hideAllWarningLogs}.
+     */
+    public static void showStartupWarningsIfInWorld(String commandPrefix, boolean hideWarnings) {
+        if (STARTUP_WARNINGS.isEmpty() || !inWorld()) return;
+        STARTUP_WARNINGS.drainAsMessage(commandPrefix).ifPresent(message -> {
+            if (!hideWarnings) Debug.logLines(message.header(), message.lines());
+        });
     }
 
     private static void loadInternal() {

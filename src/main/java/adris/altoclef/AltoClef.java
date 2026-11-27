@@ -218,6 +218,11 @@ public class AltoClef implements ModInitializer {
     private void onClientTick() {
         runEnqueuedPostInits();
 
+        if (settings != null) {
+            adris.altoclef.settings.SettingsService.showStartupWarningsIfInWorld(
+                    settings.getCommandPrefix(), settings.shouldHideAllWarningLogs());
+        }
+
         inputControls.onTickPre();
 
         // Cancel shortcut

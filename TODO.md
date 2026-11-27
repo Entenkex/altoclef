@@ -53,8 +53,10 @@ Now (package `adris.altoclef.settings`, branch `feature/settings`):
 - [x] `core.showStackTracesInChat` (stack traces of errors in chat only when enabled).
 - [x] Unit tests (Setting, SettingsManager, ProfileStore, SettingsEditor); compiles and tests green
       on all 12 versions; tested in-game on 1.21.1.
-- [ ] Show warnings from startup once in chat when joining a world (today only in the log).
-- [ ] Butler whitelist/blacklist (`.txt` list files) into the settings system?
+- [x] Warnings from loading at startup (no world open) are shown once in chat, as one message,
+      on the first tick in a world (`StartupWarnings`; respects `core.hideAllWarningLogs`).
+- [x] Butler whitelist/blacklist stay separate `.txt` files for now: they are personal and must not
+      end up in profiles that get shared.
 - [x] Mod jar build checked (1.21.1 and 1.16.5): Jackson, jackson-dataformat-yaml and SnakeYAML are
       packed; 1.16.5 classes downgraded to Java 8 (class version 52); profiles load/save from the
       built jars on Java 21 and Java 8 (standalone smoke test, not in a launcher).
