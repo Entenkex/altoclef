@@ -9,6 +9,9 @@ maybe armor for combat, etc.
 Ground rules:
 - Keep the multiversion setup (1.16.5 – 1.21.1, preprocessor). Version differences
   go behind adapters/parsers in `multiversion/`; the core works on one unified format.
+- The core keeps using Minecraft classes (they contain a lot of useful logic).
+  Only what differs between versions moves into `multiversion/` (version-dependent
+  wrappers / `//#if` blocks), no separate Minecraft-free core module.
 - One feature branch per step below.
 - No unit tests exist today. Each step should add tests for the parts that
   run without Minecraft (parsing, planning, validation).
@@ -16,7 +19,11 @@ Ground rules:
 Suggested order: 0 → 1 → 2 → 3+5 → 4 → 7 → 6.
 
 ### 0. Test setup
-- [ ] Add JUnit to the build (main project + version subprojects).
+- [x] Add JUnit to the build (main project + version subprojects).
+- [x] First characterization tests: `Task` lifecycle, BeatMinecraft priority calculators, `StringReader`.
+- [x] Preprocessor plugin as git submodule (JitPack no longer serves `c2041a3`).
+- [x] Version filter `-Paltoclef.versions=...` and memory notes (see `develop.md`).
+- [x] CI: submodules, JDK 8 toolchain, actions v4.
 - [ ] Keep logic testable without a running client (pure data classes, no `AltoClef.getInstance()` inside them).
 
 ### 1. Settings system (YAML, profiles, limits)
