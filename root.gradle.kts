@@ -1,6 +1,6 @@
 plugins {
     id("fabric-loom") version "1.7-SNAPSHOT" apply false
-    id("com.replaymod.preprocess") version "c2041a3"
+    id("com.replaymod.preprocess")
 }
 
 subprojects {
@@ -15,29 +15,35 @@ subprojects {
     }
 }
 
-preprocess {
-    val mc12101 = createNode("1.21.1", 12101, "yarn")
-    val mc12100 = createNode("1.21", 12100, "yarn")
-    val mc12006 = createNode("1.20.6", 12006, "yarn")
-    val mc12005 = createNode("1.20.5", 12005, "yarn")
-    val mc12004 = createNode("1.20.4", 12004, "yarn")
-    val mc12002 = createNode("1.20.2", 12002, "yarn")
-    val mc12001 = createNode("1.20.1", 12001, "yarn")
-    val mc11904 = createNode("1.19.4", 11904, "yarn")
-    val mc11802 = createNode("1.18.2", 11802, "yarn")
-    val mc11800 = createNode("1.18", 11800, "yarn")
-    val mc11701 = createNode("1.17.1", 11701, "yarn")
-    val mc11605 = createNode("1.16.5", 11605, "yarn")
+// Preprocessor chain, newest first. Keep in sync with allVersions in settings.gradle.kts.
+// Third value: extra mappings for the link to the next (older) version.
+val versionChain = listOf(
+    Triple("1.21.1", 12101, null),
+    Triple("1.21", 12100, null),
+    Triple("1.20.6", 12006, null),
+    Triple("1.20.5", 12005, null),
+    Triple("1.20.4", 12004, null),
+    Triple("1.20.2", 12002, null),
+    Triple("1.20.1", 12001, null),
+    Triple("1.19.4", 11904, "versions/mapping-1.19.4-1.18.2.txt"),
+    Triple("1.18.2", 11802, null),
+    Triple("1.18", 11800, "versions/mapping-1.18.2-1.17.1.txt"),
+    Triple("1.17.1", 11701, "versions/mapping-1.17.1-1.16.5.txt"),
+    Triple<String, Int, String?>("1.16.5", 11605, null),
+)
 
-    mc12101.link(mc12100)
-    mc12100.link(mc12006)
-    mc12006.link(mc12005)
-    mc12005.link(mc12004)
-    mc12004.link(mc12002)
-    mc12002.link(mc12001)
-    mc12001.link(mc11904)
-    mc11904.link(mc11802, file("versions/mapping-1.19.4-1.18.2.txt"))
-    mc11802.link(mc11800)
-    mc11800.link(mc11701, file("versions/mapping-1.18.2-1.17.1.txt"))
-    mc11701.link(mc11605, file("versions/mapping-1.17.1-1.16.5.txt"))
+preprocess {
+    // Only versions included by settings.gradle.kts (see -Paltoclef.versions) become nodes.
+    // The included versions are always a contiguous part of the chain, so neighbours stay linked.
+    val included = versionChain.filter { (name, _, _) -> findProject(":$name") != null }
+    val nodes = included.map { (name, mcVersion, _) -> createNode(name, mcVersion, "yarn") }
+
+    included.zip(nodes).zipWithNext { (newer, newerNode), (_, olderNode) ->
+        val extraMappings = newer.third
+        if (extraMappings != null) {
+            newerNode.link(olderNode, file(extraMappings))
+        } else {
+            newerNode.link(olderNode)
+        }
+    }
 }
