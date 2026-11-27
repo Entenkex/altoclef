@@ -71,6 +71,7 @@ public class AltoClef implements ModInitializer {
     private SimpleChunkTracker chunkTracker;
     private MiscBlockTracker miscBlockTracker;
     private CraftingRecipeTracker craftingRecipeTracker;
+    private adris.altoclef.trackers.RecipeRegistryTracker recipeRegistryTracker;
     // Renderers
     private CommandStatusOverlay commandStatusOverlay;
     private AltoClefTickChart altoClefTickChart;
@@ -144,6 +145,7 @@ public class AltoClef implements ModInitializer {
         chunkTracker = new SimpleChunkTracker(this);
         miscBlockTracker = new MiscBlockTracker(this);
         craftingRecipeTracker = new CraftingRecipeTracker(trackerManager);
+        recipeRegistryTracker = new adris.altoclef.trackers.RecipeRegistryTracker(trackerManager);
 
         // Renderers
         commandStatusOverlay = new CommandStatusOverlay();
@@ -394,6 +396,13 @@ public class AltoClef implements ModInitializer {
     /**
      * Manages a list of all available recipes
      */
+    /**
+     * New version independent recipes (game recipes + local fallback), see docs/recipe-model.md.
+     */
+    public adris.altoclef.trackers.RecipeRegistryTracker getRecipeRegistryTracker() {
+        return recipeRegistryTracker;
+    }
+
     public CraftingRecipeTracker getCraftingRecipeTracker() {
         return craftingRecipeTracker;
     }

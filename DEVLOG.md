@@ -109,6 +109,14 @@ afterwards was not staged yet.
 
 - **2026-11-27:** `CraftingRecipeTracker` fills recipe slots linearly and ignores the recipe width, so narrow shaped
   recipes (1x2, 2x2 in a 3x3 grid) end up in the wrong slots; it also keeps only the first item per ingredient.
-  To be solved with the unified recipe format (TODO step 2).
+  To be solved with the unified recipe format (TODO step 2). The new model places shapes correctly
+  (`RecipeShape.Shaped.toGrid`); the old tracker stays in use until step 2.3.
+- **2026-11-27:** `@recipes compare` (1.21.1): 295 of 306 hand-written `TaskCatalogue` recipes match the game.
+  Wrong ones: `bamboo_button`/`bamboo_planks` (catalogue name `bamboo_block` does not exist → empty slots, can
+  never be crafted), `brick_slab`/`brick_stairs`/`brick_wall` (use `brick` instead of `bricks`; wall also wrong
+  shape and count 4 instead of 6), `carrot_on_a_stick`/`warped_fungus_on_a_stick` (side by side instead of
+  diagonal), `lead` (gives 2, not 1), `quartz_pillar` (gives 2, not 4), `red_nether_bricks` (needs nether brick
+  + nether wart, not 4 nether wart). `suspicious_stew` is a special recipe (not imported, expected).
+  Fixed by taking catalogue recipes from the registry (TODO 2.4).
 - **2026-11-27:** `ItemPriorityCalculator` checks `count > max`, `DistancePriorityCalculator` checks `count >= max`
   (pinned by `PriorityCalculatorTest`). To be cleaned up with the new priority system (TODO step 3).

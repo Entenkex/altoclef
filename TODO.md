@@ -73,16 +73,23 @@ fills slots linearly and ignores recipe width (narrow shaped recipes end up wron
 keeps only `items[0]` per ingredient (FIXME), skips special recipes.
 `JankCraftingRecipeMapping` rebuilds its map on every call.
 "Same material" constraints live in `CraftWith*Matching*Task` special classes.
-- [ ] Own recipe model modeled after vanilla: shaped (pattern + key) / shapeless,
-      ingredient = item | tag | catalogue name, output count, station
-      (inventory, crafting table, furnace/smoker/blast furnace, smithing table).
-- [ ] "Must match" groups (bed wool color, planks of one wood type).
-- [ ] Per-version parsers in `multiversion/` that turn the game's `RecipeManager`
-      into the unified format (recipe API changes across 1.16.5 – 1.21.x).
-- [ ] Build the recipe registry on world join (recipes are server-side);
-      hand-written recipes only as overrides/fallback.
-- [ ] Replace `CraftingRecipe` / `RecipeTarget` usages, drop `JankCraftingRecipeMapping`.
-- [ ] Later (once the format is stable): load recipes dynamically / from data files.
+Design and decisions: [`docs/recipe-model.md`](docs/recipe-model.md) (branch `feature/recipes`).
+Scope of this step: crafting + smelting (furnace, smoker, blast furnace, campfire).
+- [x] 2.1 Own recipe model in `adris.altoclef.recipes` (Minecraft-free, item ids as strings):
+      `Recipe`, `RecipeShape` (shaped with width/height + `toGrid`, shapeless, cooking), `Ingredient`
+      (alternatives, tag label), `Station`, `RecipeRegistry` (game recipes win, fallback otherwise,
+      `choose` replaces the "must match" tasks), `VanillaRecipeParser` (vanilla JSON, old and new
+      spellings), `TagResolver` (game tags / local tag file). 20 unit tests.
+- [x] 2.2 `GameRecipeImporter` (`multiversion/recipemanager/`, all 12 versions via preprocessor remapping),
+      `RecipeRegistryTracker` (fallback at start, game recipes on world join, cleared on leave),
+      792 fallback recipes + 21 tags in `assets/altoclef/recipes/` (generated from vanilla 1.21.1 by
+      `scripts/gen_fallback_recipes.py`), `@recipes [item|compare]`. In-game 1.21.1: 999 imported,
+      291 skipped; compare found 9 wrong hand-written recipes (see DEVLOG).
+- [ ] 2.3 Crafting tasks on the new model (`toGrid` for manual crafting, imported recipe id for the
+      recipe book → drop `JankCraftingRecipeMapping`); fix `CraftingHelper` (shared `ItemStack`s).
+- [ ] 2.4 `TaskCatalogue`: crafted/smelted entries from the registry; `CraftWithMatching*` → `choose`.
+- [ ] 2.5 Remove `CraftingRecipe`, `RecipeTarget`, `JankCraftingRecipeMapping`, `shapedRecipe*` helpers.
+- [ ] Later: smithing, stonecutter; reading data packs (1.21.2+ clients get no recipes from the server).
 
 ### 3. Task architecture: layers, strategies, priorities (together with 5)
 
