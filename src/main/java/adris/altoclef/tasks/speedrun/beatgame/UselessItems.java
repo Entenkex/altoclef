@@ -131,7 +131,7 @@ public class UselessItems {
         ));
 
 
-        if (!config.barterPearlsInsteadOfEndermanHunt) {
+        if (!config.barterPearlsInsteadOfEndermanHunt.get()) {
             uselessItemList.add(Items.GOLD_NUGGET);
         }
 

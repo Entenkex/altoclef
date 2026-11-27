@@ -110,6 +110,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-core:2.16.0'
     implementation 'com.fasterxml.jackson.core:jackson-annotations:2.16.0'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.0'
+    // YAML settings profiles (pulls in snakeyaml)
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.0'
 
     // Jvm downgrader
     include('xyz.wagyourtail.jvmdowngrader:jvmdowngrader-java-api:0.9.0:downgraded-8')
@@ -127,6 +129,7 @@ dependencies {
     shadow('com.fasterxml.jackson.core:jackson-core:2.16.0')
     shadow('com.fasterxml.jackson.core:jackson-annotations:2.16.0')
     shadow('com.fasterxml.jackson.core:jackson-databind:2.16.0')
+    shadow('com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.0')
 
     // Thank you georgeagostino for fixing my garbage
     if (getProject().hasProperty("altoclef.development")) {

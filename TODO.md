@@ -18,6 +18,8 @@ Ground rules:
 
 Suggested order: 0 → 1 → 2 → 3+5 → 4 → 7 → 6.
 
+Problems we ran into during development are recorded in [`DEVLOG.md`](DEVLOG.md).
+
 ### 0. Test setup
 - [x] Add JUnit to the build (main project + version subprojects).
 - [x] First characterization tests: `Task` lifecycle, BeatMinecraft priority calculators, `StringReader`.
@@ -27,17 +29,30 @@ Suggested order: 0 → 1 → 2 → 3+5 → 4 → 7 → 6.
 - [ ] Keep logic testable without a running client (pure data classes, no `AltoClef.getInstance()` inside them).
 
 ### 1. Settings system (YAML, profiles, limits)
-Today: `Settings.java` (Jackson POJO, `altoclef_settings.json`), plus
-`configs/beat_minecraft.json` (`BeatMinecraftConfig`, many fields unused) and
-`configs/butler.json`. Loaded via `ConfigHelper`, reloaded with `@reload_settings`.
-No validation, no min/max.
-- [ ] Typed `Setting<T>`: key, default, min, max, description; central registry.
-- [ ] YAML via `jackson-dataformat-yaml` (Jackson is already shaded; add it to the shadow config).
-- [ ] Profiles: several YAML files in the config folder, selectable at runtime.
-- [ ] Out-of-range or invalid values fall back to the default with a warning.
-- [ ] In-game command first (`@set <key> <value>`, `@profile <name>`).
-- [ ] Migrate the existing JSON settings / BeatMinecraft config.
-- [ ] Later: GUI (screen API differs per version → needs a multiversion wrapper).
+Before: `Settings.java` (Jackson POJO, `altoclef_settings.json`), plus
+`configs/beat_minecraft.json`, `configs/butler.json`, `configs/food_chain_settings.json`
+and `configs/mlg_clutch_settings.json`. No validation, no min/max.
+Now (package `adris.altoclef.settings`, branch `feature/settings`):
+- [x] Typed `Setting<T>`: key, default, min, max, description, custom check.
+- [x] Central `SettingsManager`; parts register their settings with a key prefix
+      (`core.`, `beatMinecraft.`, `butler.`, `foodChain.`, `mlgClutch.`). Late registration
+      (e.g. by tasks) gets the profile value immediately.
+- [x] YAML via `jackson-dataformat-yaml` (added to the shadow config).
+- [x] Profiles in `altoclef/profiles/<name>.yml` (only values that differ, `extends:`),
+      active profile in `altoclef/profiles.yml`, generated `settings_reference.yml`.
+- [x] Above max -> max, below min -> min (warning); wrong type / failed check -> default (warning).
+- [x] Unknown keys in a profile are reported (typos).
+- [x] In-game commands `@setting [key|group] [value|reset]` and `@profile [name | new <name>]`,
+      tab completion, one formatted chat message per listing, readable error texts.
+- [x] Migrated all 5 JSON configs (88 settings); one-time import of old JSON values into `default.yml`.
+- [x] Removed the old JSON config code (`ConfigHelper` only keeps the butler list files).
+- [x] `core.showStackTracesInChat` (stack traces of errors in chat only when enabled).
+- [x] Unit tests (Setting, SettingsManager, ProfileStore, SettingsEditor); compiles and tests green
+      on all 12 versions; tested in-game on 1.21.1.
+- [ ] Show warnings from startup once in chat when joining a world (today only in the log).
+- [ ] Butler whitelist/blacklist (`.txt` list files) into the settings system?
+- [ ] Mod jar build (`build`: shadow + downgrade) not checked yet: is the YAML library packed correctly?
+- [ ] Later: GUI (screen API differs per version -> needs a multiversion wrapper); `SettingsEditor` is the backend.
 - [ ] Make priority constants (see 3) configurable as settings.
 
 ### 2. Unified recipe format

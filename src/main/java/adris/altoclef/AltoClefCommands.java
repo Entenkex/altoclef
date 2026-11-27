@@ -34,6 +34,8 @@ public class AltoClefCommands {
                 new FoodCommand(),
                 new MeatCommand(),
                 new ReloadSettingsCommand(),
+                new SettingCommand(),
+                new ProfileCommand(),
                 new GamerCommand(),
                 new MarvionCommand(),
                 new DummyTaskCommand(),

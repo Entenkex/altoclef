@@ -2,6 +2,9 @@ package adris.altoclef.chains;
 
 import adris.altoclef.AltoClef;
 import adris.altoclef.Settings;
+import adris.altoclef.settings.Setting;
+import adris.altoclef.settings.SettingsManager;
+import adris.altoclef.settings.SettingsService;
 import adris.altoclef.multiversion.FoodComponentWrapper;
 import adris.altoclef.multiversion.item.ItemVer;
 import adris.altoclef.tasks.resources.CollectFoodTask;
@@ -26,12 +29,8 @@ import java.util.Optional;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class FoodChain extends SingleTaskChain {
-    private static FoodChainConfig config;
+    private static final FoodChainConfig config = new FoodChainConfig(SettingsService.manager());
     private static boolean hasFood;
-
-    static {
-        ConfigHelper.loadConfig("configs/food_chain_settings.json", FoodChainConfig::new, FoodChainConfig.class, newConfig -> config = newConfig);
-    }
 
     private final DragonBreathTracker dragonBreathTracker = new DragonBreathTracker();
     private boolean isTryingToEat = false;
@@ -232,10 +231,10 @@ public class FoodChain extends SingleTaskChain {
         //Debug.logMessage("FOOD: " + foodLevel + " -- HEALTH: " + health);
 
         // Eat if we're desperate/need to heal ASAP
-        if (player.isOnFire() || player.hasStatusEffect(StatusEffects.WITHER) || health < config.alwaysEatWhenWitherOrFireAndHealthBelow) {
+        if (player.isOnFire() || player.hasStatusEffect(StatusEffects.WITHER) || health < config.alwaysEatWhenWitherOrFireAndHealthBelow.get()) {
             return true;
-        } else if (foodLevel > config.alwaysEatWhenBelowHunger) {
-            if (health < config.alwaysEatWhenBelowHealth) {
+        } else if (foodLevel > config.alwaysEatWhenBelowHunger.get()) {
+            if (health < config.alwaysEatWhenBelowHealth.get()) {
                 return true;
             }
         } else {
@@ -245,7 +244,7 @@ public class FoodChain extends SingleTaskChain {
 
 
         // Eat if we're  units hungry and we have a perfect fit.
-        if (foodLevel < config.alwaysEatWhenBelowHungerAndPerfectFit && cachedPerfectFood.isPresent()) {
+        if (foodLevel < config.alwaysEatWhenBelowHungerAndPerfectFit.get() && cachedPerfectFood.isPresent()) {
             int need = 20 - foodLevel;
             Item best = cachedPerfectFood.get();
 
@@ -288,16 +287,16 @@ public class FoodChain extends SingleTaskChain {
                 float saturationWasted = food.getSaturationModifier() - gainedSaturation;
                 float hungerWasted = food.getHunger() - gainedHunger;
 
-                boolean prioritizeSaturation = health < config.prioritizeSaturationWhenBelowHealth;
-                float saturationGoodScore = prioritizeSaturation ? gainedSaturation * config.foodPickPrioritizeSaturationSaturationMultiplier : gainedSaturation;
-                float saturationLossPenalty = prioritizeSaturation ? 0 : saturationWasted * config.foodPickSaturationWastePenaltyMultiplier;
-                float hungerLossPenalty = hungerWasted * config.foodPickHungerWastePenaltyMultiplier;
-                float hungerNotFilledPenalty = hungerNotFilled * config.foodPickHungerNotFilledPenaltyMultiplier;
+                boolean prioritizeSaturation = health < config.prioritizeSaturationWhenBelowHealth.get();
+                float saturationGoodScore = prioritizeSaturation ? gainedSaturation * config.foodPickPrioritizeSaturationSaturationMultiplier.get() : gainedSaturation;
+                float saturationLossPenalty = prioritizeSaturation ? 0 : saturationWasted * config.foodPickSaturationWastePenaltyMultiplier.get();
+                float hungerLossPenalty = hungerWasted * config.foodPickHungerWastePenaltyMultiplier.get();
+                float hungerNotFilledPenalty = hungerNotFilled * config.foodPickHungerNotFilledPenaltyMultiplier.get();
 
                 float score = saturationGoodScore - saturationLossPenalty - hungerLossPenalty - hungerNotFilledPenalty;
 
                 if (stack.getItem() == Items.ROTTEN_FLESH) {
-                    score -= config.foodPickRottenFleshPenalty;
+                    score -= config.foodPickRottenFleshPenalty.get();
                 }
                 if (score > bestFoodScore) {
                     bestFoodScore = score;
@@ -328,20 +327,55 @@ public class FoodChain extends SingleTaskChain {
         return shouldStop;
     }
 
+    /**
+     * Eating behaviour (key prefix {@code foodChain.}). Health and hunger are in half hearts / half drumsticks (0-20).
+     */
     static class FoodChainConfig {
-        public int alwaysEatWhenWitherOrFireAndHealthBelow = 6;
-        public int alwaysEatWhenBelowHunger = 10;
-        public int alwaysEatWhenBelowHealth = 14;
-        public int alwaysEatWhenBelowHungerAndPerfectFit = 20 - 5;
-        public int prioritizeSaturationWhenBelowHealth = 8;
-        public float foodPickPrioritizeSaturationSaturationMultiplier = 8;
-        public float foodPickSaturationWastePenaltyMultiplier = 1;
-        public float foodPickHungerWastePenaltyMultiplier = 2;
-        public float foodPickHungerNotFilledPenaltyMultiplier = 1;
-        public float foodPickRottenFleshPenalty = 100;
-        public float runDontEatMaxHealth = 3;
-        public int runDontEatMaxHunger = 3;
-        public int canTankHitsAndEatArmor = 15;
-        public int canTankHitsAndEatMaxHunger = 3;
+        private static final String P = "foodChain.";
+        final Setting<Integer> alwaysEatWhenWitherOrFireAndHealthBelow;
+        final Setting<Integer> alwaysEatWhenBelowHunger;
+        final Setting<Integer> alwaysEatWhenBelowHealth;
+        final Setting<Integer> alwaysEatWhenBelowHungerAndPerfectFit;
+        final Setting<Integer> prioritizeSaturationWhenBelowHealth;
+        final Setting<Float> foodPickPrioritizeSaturationSaturationMultiplier;
+        final Setting<Float> foodPickSaturationWastePenaltyMultiplier;
+        final Setting<Float> foodPickHungerWastePenaltyMultiplier;
+        final Setting<Float> foodPickHungerNotFilledPenaltyMultiplier;
+        final Setting<Float> foodPickRottenFleshPenalty;
+        final Setting<Float> runDontEatMaxHealth;
+        final Setting<Integer> runDontEatMaxHunger;
+        final Setting<Integer> canTankHitsAndEatArmor;
+        final Setting<Integer> canTankHitsAndEatMaxHunger;
+
+        FoodChainConfig(SettingsManager m) {
+            alwaysEatWhenWitherOrFireAndHealthBelow = Setting.integer(P + "alwaysEatWhenWitherOrFireAndHealthBelow", 6).range(0, 20)
+                    .description("Always eat when burning or withering and health is below this.").register(m);
+            alwaysEatWhenBelowHunger = Setting.integer(P + "alwaysEatWhenBelowHunger", 10).range(0, 20)
+                    .description("Always eat when hunger is below this.").register(m);
+            alwaysEatWhenBelowHealth = Setting.integer(P + "alwaysEatWhenBelowHealth", 14).range(0, 20)
+                    .description("Eat (if hunger allows) when health is below this.").register(m);
+            alwaysEatWhenBelowHungerAndPerfectFit = Setting.integer(P + "alwaysEatWhenBelowHungerAndPerfectFit", 20 - 5).range(0, 20)
+                    .description("Eat when hunger is below this and a food fits perfectly.").register(m);
+            prioritizeSaturationWhenBelowHealth = Setting.integer(P + "prioritizeSaturationWhenBelowHealth", 8).range(0, 20)
+                    .description("Below this health, prefer food with high saturation.").register(m);
+            foodPickPrioritizeSaturationSaturationMultiplier = Setting.floating(P + "foodPickPrioritizeSaturationSaturationMultiplier", 8f).range(0f, 1000f)
+                    .description("Food choice: weight of gained saturation when saturation is prioritized.").register(m);
+            foodPickSaturationWastePenaltyMultiplier = Setting.floating(P + "foodPickSaturationWastePenaltyMultiplier", 1f).range(0f, 1000f)
+                    .description("Food choice: penalty per wasted saturation point.").register(m);
+            foodPickHungerWastePenaltyMultiplier = Setting.floating(P + "foodPickHungerWastePenaltyMultiplier", 2f).range(0f, 1000f)
+                    .description("Food choice: penalty per wasted hunger point.").register(m);
+            foodPickHungerNotFilledPenaltyMultiplier = Setting.floating(P + "foodPickHungerNotFilledPenaltyMultiplier", 1f).range(0f, 1000f)
+                    .description("Food choice: penalty per hunger point that stays unfilled.").register(m);
+            foodPickRottenFleshPenalty = Setting.floating(P + "foodPickRottenFleshPenalty", 100f).range(0f, 10_000f)
+                    .description("Food choice: penalty for rotten flesh.").register(m);
+            runDontEatMaxHealth = Setting.floating(P + "runDontEatMaxHealth", 3f).range(0f, 20f)
+                    .description("With enemies close and health at or below this, run instead of eating.").register(m);
+            runDontEatMaxHunger = Setting.integer(P + "runDontEatMaxHunger", 3).range(0, 20)
+                    .description("With enemies close and hunger at or below this, run instead of eating.").register(m);
+            canTankHitsAndEatArmor = Setting.integer(P + "canTankHitsAndEatArmor", 15).range(0, 30)
+                    .description("With at least this much armor the bot eats even while being hit.").register(m);
+            canTankHitsAndEatMaxHunger = Setting.integer(P + "canTankHitsAndEatMaxHunger", 3).range(0, 20)
+                    .description("Max hunger at which the bot eats while tanking hits.").register(m);
+        }
     }
 }

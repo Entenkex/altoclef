@@ -49,7 +49,7 @@ public class Butler {
 
         // Receive system events
         EventBus.subscribe(ChatMessageEvent.class, evt -> {
-            boolean debug = ButlerConfig.getInstance().whisperFormatDebug;
+            boolean debug = ButlerConfig.getInstance().whisperFormatDebug.get();
             String message = evt.messageContent();
             String sender = evt.senderName();
             MessageType messageType = evt.messageType();
@@ -81,14 +81,14 @@ public class Butler {
         WhisperChecker.MessageResult result = this.whisperChecker.receiveMessage(mod, receiver, msg);
         if (result != null) {
             this.receiveWhisper(result.from, result.message);
-        } else if (ButlerConfig.getInstance().whisperFormatDebug) {
+        } else if (ButlerConfig.getInstance().whisperFormatDebug.get()) {
             Debug.logMessage("    Not Parsing: MSG format not found.");
         }
     }
 
     private void receiveWhisper(String username, String message) {
 
-        boolean debug = ButlerConfig.getInstance().whisperFormatDebug;
+        boolean debug = ButlerConfig.getInstance().whisperFormatDebug.get();
         // Ignore messages from other bots.
         if (message.startsWith(BUTLER_MESSAGE_START)) {
             if (debug) {
@@ -103,8 +103,8 @@ public class Butler {
             if (debug) {
                 Debug.logMessage("    Rejecting: User \"" + username + "\" is not authorized.");
             }
-            if (ButlerConfig.getInstance().sendAuthorizationResponse) {
-                sendWhisper(username, ButlerConfig.getInstance().failedAuthorizationResposne.replace("{from}", username), MessagePriority.UNAUTHORIZED);
+            if (ButlerConfig.getInstance().sendAuthorizationResponse.get()) {
+                sendWhisper(username, ButlerConfig.getInstance().failedAuthorizationResposne.get().replace("{from}", username), MessagePriority.UNAUTHORIZED);
             }
         }
     }

@@ -89,8 +89,8 @@ public class UserTaskChain extends SingleTaskChain {
         setTask(task);
 
         if (mod.getModSettings().failedToLoad()) {
-            Debug.logWarning("Settings file failed to load at some point. Check logs for more info, or delete the" +
-                    " file to re-load working settings.");
+            Debug.logWarning("Settings profile had problems loading (missing or broken file in altoclef/profiles/)." +
+                    " Check the logs for details; affected settings use their defaults.");
         }
     }
 

@@ -1,20 +1,20 @@
 package adris.altoclef.tasks.movement;
 
+import adris.altoclef.settings.Setting;
+import adris.altoclef.settings.SettingsManager;
+import adris.altoclef.settings.SettingsService;
+import com.fasterxml.jackson.core.type.TypeReference;
 import adris.altoclef.AltoClef;
 import adris.altoclef.Debug;
 import adris.altoclef.control.InputControls;
 import adris.altoclef.multiversion.DamageSourceVer;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.helpers.*;
-import adris.altoclef.util.serialization.ItemDeserializer;
-import adris.altoclef.util.serialization.ItemSerializer;
 import baritone.Baritone;
 import baritone.api.utils.IPlayerContext;
 import baritone.api.utils.Rotation;
 import baritone.api.utils.RotationUtils;
 import baritone.api.utils.input.Input;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -40,10 +40,13 @@ import java.util.Optional;
 
 public class MLGBucketTask extends Task {
 
-    private static MLGClutchConfig _config;
+    private static final MLGClutchConfig _config = new MLGClutchConfig(SettingsService.manager());
 
-    static {
-        ConfigHelper.loadConfig("configs/mlg_clutch_settings.json", MLGClutchConfig::new, MLGClutchConfig.class, newConfig -> _config = newConfig);
+    /**
+     * Makes sure the clutch settings are registered (they are created when this class is loaded).
+     */
+    public static void registerSettings() {
+        // Loading the class registers _config.
     }
 
     private BlockPos placedPos;
@@ -59,7 +62,7 @@ public class MLGBucketTask extends Task {
         BlockState state = MinecraftClient.getInstance().world.getBlockState(pos);
         if (state.getBlock() == Blocks.LAVA) {
             int level = state.getFluidState().getLevel();
-            return level == 0 || level >= _config.lavaLevelOrGreaterWillCancelFallDamage;
+            return level == 0 || level >= _config.lavaLevelOrGreaterWillCancelFallDamage.get();
         }
         return false;
     }
@@ -78,7 +81,7 @@ public class MLGBucketTask extends Task {
         double verticalDist = player.getPos().getY() - pos.getY() - 1;
         double verticalVelocity = -1 * player.getVelocity().y;
         double grav = EntityHelper.ENTITY_GRAVITY;
-        double movementSpeedPerTick = _config.averageHorizontalMovementSpeedPerTick; // Calculated, but also somewhat conservative
+        double movementSpeedPerTick = _config.averageHorizontalMovementSpeedPerTick.get(); // Calculated, but also somewhat conservative
         // 1d projectile motion
         double ticksToTravelSq = (-verticalVelocity + Math.sqrt(verticalVelocity * verticalVelocity + 2 * grav * verticalDist)) / grav;
         double maxMoveDistanceSq = movementSpeedPerTick * movementSpeedPerTick * ticksToTravelSq * ticksToTravelSq;
@@ -99,7 +102,7 @@ public class MLGBucketTask extends Task {
         }
         assert player != null;
         double resultingHealth = player.getHealth() - (float) damage;
-        return resultingHealth < _config.preferLavaWhenFallDropsHealthBelowThreshold;
+        return resultingHealth < _config.preferLavaWhenFallDropsHealthBelowThreshold.get();
     }
 
     private static double calculateFallDamageToLandOn(BlockPos pos) {
@@ -198,8 +201,8 @@ public class MLGBucketTask extends Task {
             boolean hasClutch = (!mod.getWorld().getDimension().ultrawarm() && mod.getSlotHandler().forceEquipItem(Items.WATER_BUCKET));
             if (!hasClutch) {
                 // Go through our "clutch" items and see if any fit
-                if (!_config.clutchItems.isEmpty()) {
-                    for (Item tryEquip : _config.clutchItems) {
+                if (!_config.clutchItems.get().isEmpty()) {
+                    for (Item tryEquip : _config.clutchItems.get()) {
                         if (mod.getSlotHandler().forceEquipItem(tryEquip)) {
                             hasClutch = true;
                             break;
@@ -362,8 +365,8 @@ public class MLGBucketTask extends Task {
     }
 
     private Optional<BlockPos> getBestConeClutchBlock(AltoClef mod, BlockPos oldClutchTarget) {
-        double pitchHalfWidth = _config.epicClutchConePitchAngle;
-        double dpitchStart = pitchHalfWidth / _config.epicClutchConePitchResolution;
+        double pitchHalfWidth = _config.epicClutchConePitchAngle.get();
+        double dpitchStart = pitchHalfWidth / _config.epicClutchConePitchResolution.get();
 
         // Our priority is:
         // - Safe to land (water)
@@ -378,9 +381,9 @@ public class MLGBucketTask extends Task {
             cctx.checkBlock(mod, oldClutchTarget);
 
         // Perform cone
-        for (double pitch = dpitchStart; pitch <= pitchHalfWidth; pitch += pitchHalfWidth / _config.epicClutchConePitchResolution) {
+        for (double pitch = dpitchStart; pitch <= pitchHalfWidth; pitch += pitchHalfWidth / _config.epicClutchConePitchResolution.get()) {
             double pitchProgress = (pitch - dpitchStart) / (pitchHalfWidth - dpitchStart);
-            double yawResolution = _config.epicClutchConeYawDivisionStart + pitchProgress * (_config.epicClutchConeYawDivisionEnd - _config.epicClutchConeYawDivisionStart); // lerp from start to end
+            double yawResolution = _config.epicClutchConeYawDivisionStart.get() + pitchProgress * (_config.epicClutchConeYawDivisionEnd.get() - _config.epicClutchConeYawDivisionStart.get()); // lerp from start to end
             for (double yaw = 0; yaw < 360; yaw += 360.0 / yawResolution) {
                 RaycastContext rctx = castCone(yaw, pitch);
                 cctx.checkRay(mod, rctx);
@@ -403,14 +406,14 @@ public class MLGBucketTask extends Task {
     private RaycastContext castDown(Vec3d origin) {
         Entity player = MinecraftClient.getInstance().player;
         assert player != null;
-        return new RaycastContext(origin, origin.add(0, -1 * _config.castDownDistance, 0), RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.ANY, player);
+        return new RaycastContext(origin, origin.add(0, -1 * _config.castDownDistance.get(), 0), RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.ANY, player);
     }
 
     private RaycastContext castCone(double yaw, double pitch) {
         Entity player = MinecraftClient.getInstance().player;
         assert player != null;
         Vec3d origin = player.getPos();
-        double dy = _config.epicClutchConeCastHeight;
+        double dy = _config.epicClutchConeCastHeight.get();
         double dH = dy * Math.sin(Math.toRadians(pitch)); // horizontal distance
         double yawRad = Math.toRadians(yaw);
         double dx = dH * Math.cos(yawRad);
@@ -437,7 +440,7 @@ public class MLGBucketTask extends Task {
         if (!mod.getWorld().getDimension().ultrawarm() && mod.getItemStorage().hasItem(Items.WATER_BUCKET)) {
             return true;
         }
-        return _config.clutchItems.stream().anyMatch(item -> mod.getItemStorage().hasItem(item));
+        return _config.clutchItems.get().stream().anyMatch(item -> mod.getItemStorage().hasItem(item));
     }
 
     @Override
@@ -465,19 +468,45 @@ public class MLGBucketTask extends Task {
         return placedPos;
     }
 
+    /**
+     * MLG / clutch behaviour (key prefix {@code mlgClutch.}).
+     */
     private static class MLGClutchConfig {
-        public double castDownDistance = 40;
-        public double averageHorizontalMovementSpeedPerTick = 0.25; // How "far" the player moves horizontally per tick. Set too low and the bot will ignore viable clutches. Set too high and the bot will go for clutches it can't reach.
-        public double epicClutchConeCastHeight = 40; // How high the "epic clutch" ray cone is
-        public double epicClutchConePitchAngle = 25; // How wide (degrees) the "epic clutch" ray cone is
-        public int epicClutchConePitchResolution = 8; // How many divisions in each direction the cone's pitch has
-        public int epicClutchConeYawDivisionStart = 6; // How many divisions to start the cone clutch at in the center
-        public int epicClutchConeYawDivisionEnd = 20; // How many divisions to move the cone clutch at torwars the end
-        public int preferLavaWhenFallDropsHealthBelowThreshold = 3; // If a fall results in our player's health going below this value, consider it deadly.
-        public int lavaLevelOrGreaterWillCancelFallDamage = 5; // Lava at this level will cancel our fall damage if we hold space.
-        @JsonSerialize(using = ItemSerializer.class)
-        @JsonDeserialize(using = ItemDeserializer.class)
-        public List<Item> clutchItems = List.of(Items.HAY_BLOCK, Items.TWISTING_VINES);
+        private static final String P = "mlgClutch.";
+        final Setting<Double> castDownDistance;
+        final Setting<Double> averageHorizontalMovementSpeedPerTick;
+        final Setting<Double> epicClutchConeCastHeight;
+        final Setting<Double> epicClutchConePitchAngle;
+        final Setting<Integer> epicClutchConePitchResolution;
+        final Setting<Integer> epicClutchConeYawDivisionStart;
+        final Setting<Integer> epicClutchConeYawDivisionEnd;
+        final Setting<Integer> preferLavaWhenFallDropsHealthBelowThreshold;
+        final Setting<Integer> lavaLevelOrGreaterWillCancelFallDamage;
+        final Setting<List<Item>> clutchItems;
+
+        MLGClutchConfig(SettingsManager m) {
+            castDownDistance = Setting.decimal(P + "castDownDistance", 40).range(1d, 400d)
+                    .description("How far down to look for a landing spot.").register(m);
+            averageHorizontalMovementSpeedPerTick = Setting.decimal(P + "averageHorizontalMovementSpeedPerTick", 0.25).range(0.01, 5d)
+                    .description("How far the player moves horizontally per tick. Too low ignores viable clutches, too high tries unreachable ones.").register(m);
+            epicClutchConeCastHeight = Setting.decimal(P + "epicClutchConeCastHeight", 40).range(1d, 400d)
+                    .description("Height of the \"epic clutch\" ray cone.").register(m);
+            epicClutchConePitchAngle = Setting.decimal(P + "epicClutchConePitchAngle", 25).range(1d, 90d)
+                    .description("Width (degrees) of the \"epic clutch\" ray cone.").register(m);
+            epicClutchConePitchResolution = Setting.integer(P + "epicClutchConePitchResolution", 8).range(1, 100)
+                    .description("Divisions of the cone's pitch in each direction.").register(m);
+            epicClutchConeYawDivisionStart = Setting.integer(P + "epicClutchConeYawDivisionStart", 6).range(1, 100)
+                    .description("Yaw divisions in the center of the cone.").register(m);
+            epicClutchConeYawDivisionEnd = Setting.integer(P + "epicClutchConeYawDivisionEnd", 20).range(1, 200)
+                    .description("Yaw divisions towards the edge of the cone.").register(m);
+            preferLavaWhenFallDropsHealthBelowThreshold = Setting.integer(P + "preferLavaWhenFallDropsHealthBelowThreshold", 3).range(0, 20)
+                    .description("A fall that leaves less health than this counts as deadly (then lava is preferred).").register(m);
+            lavaLevelOrGreaterWillCancelFallDamage = Setting.integer(P + "lavaLevelOrGreaterWillCancelFallDamage", 5).range(0, 15)
+                    .description("Lava at this level or higher cancels fall damage when holding space.").register(m);
+            clutchItems = Setting.of(P + "clutchItems", new TypeReference<List<Item>>() {
+                    }, List.of(Items.HAY_BLOCK, Items.TWISTING_VINES))
+                    .description("Blocks that can be placed to soften a fall.").register(m);
+        }
     }
 
     class ConeClutchContext {

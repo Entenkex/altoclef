@@ -29,10 +29,10 @@ public class UserAuth {
     public boolean isUserAuthorized(String username) {
 
         // Blacklist gets first priority.
-        if (ButlerConfig.getInstance().useButlerBlacklist && _blacklist.containsUser(username)) {
+        if (ButlerConfig.getInstance().useButlerBlacklist.get() && _blacklist.containsUser(username)) {
             return false;
         }
-        if (ButlerConfig.getInstance().useButlerWhitelist) {
+        if (ButlerConfig.getInstance().useButlerWhitelist.get()) {
             return _whitelist.containsUser(username);
         }
 

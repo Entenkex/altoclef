@@ -83,6 +83,20 @@ public abstract class Command {
         Debug.logError(message.toString());
     }
 
+    /**
+     * Header and lines as one chat message.
+     */
+    protected void logLines(String header, List<String> lines) {
+        Debug.logLines(header, lines);
+    }
+
+    /**
+     * Red message without stack trace, for wrong input or notices about what the user typed.
+     */
+    protected void logUserError(Object message) {
+        Debug.logUserError(message.toString());
+    }
+
     protected abstract void call(AltoClef mod, ArgParser parser) throws CommandException;
 
     public List<String> getNames() {
