@@ -3,6 +3,7 @@ package adris.altoclef.tasks;
 import adris.altoclef.AltoClef;
 import adris.altoclef.tasks.slot.MoveItemToSlotFromInventoryTask;
 import adris.altoclef.tasks.slot.ReceiveCraftingOutputSlotTask;
+import adris.altoclef.tasksystem.ITaskUsesCraftingGrid;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.RecipeTarget;
@@ -22,7 +23,12 @@ import java.util.Optional;
  * <p>
  * Not useful for custom tasks.
  */
-public class CraftGenericManuallyTask extends Task {
+/**
+ * Crafts by moving the items into the crafting grid slot by slot.
+ * Marked as {@link ITaskUsesCraftingGrid} so the parent {@code ResourceTask} does not clear the 2x2 grid while this
+ * task is filling it (that caused an endless fill/clear loop when crafting without the recipe book).
+ */
+public class CraftGenericManuallyTask extends Task implements ITaskUsesCraftingGrid {
 
     private final RecipeTarget target;
 
@@ -74,7 +80,11 @@ public class CraftGenericManuallyTask extends Task {
         // We need 9 sticks
         // plank recipe results in 4 sticks
         // this means 3 planks per slot
-        int requiredPerSlot = (int) Math.ceil((double) target.getTargetCount() / target.getRecipe().outputCount());
+        // Only what is still missing: items we already have don't need to be crafted again
+        // (before, 8 wanted with 4 present asked for material for 8 and got stuck after 4).
+        int alreadyHave = mod.getItemStorage().getItemCount(target.getOutputItem());
+        int stillNeeded = Math.max(1, target.getTargetCount() - alreadyHave);
+        int requiredPerSlot = (int) Math.ceil((double) stillNeeded / target.getRecipe().outputCount());
 
         // For each slot in table
         for (int craftSlot = 0; craftSlot < target.getRecipe().getSlotCount(); ++craftSlot) {
@@ -100,7 +110,9 @@ public class CraftGenericManuallyTask extends Task {
                 if (!isSatisfied) {
                     // We have items that satisfy, but we CAN NOT fill in the current slot!
                     // In that case, just grab from the output.
-                    if (!mod.getItemStorage().hasItemInventoryOnly(present.getItem())) {
+                    // Check the item that SHOULD go into the slot (before: the item already in it, which is
+                    // air for an empty slot -> endless "Called MoveItemToSlotTask when ... not available").
+                    if (!mod.getItemStorage().hasItemInventoryOnly(toFill.getMatches())) {
                         if (!StorageHelper.getItemStackInSlot(outputSlot).isEmpty()) {
                             setDebugState("NO MORE to fit: grabbing from output.");
                             return new ReceiveCraftingOutputSlotTask(outputSlot, target.getTargetCount());

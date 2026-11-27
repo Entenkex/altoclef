@@ -85,8 +85,13 @@ Scope of this step: crafting + smelting (furnace, smoker, blast furnace, campfir
       792 fallback recipes + 21 tags in `assets/altoclef/recipes/` (generated from vanilla 1.21.1 by
       `scripts/gen_fallback_recipes.py`), `@recipes [item|compare]`. In-game 1.21.1: 999 imported,
       291 skipped; compare found 9 wrong hand-written recipes (see DEVLOG).
-- [ ] 2.3 Crafting tasks on the new model (`toGrid` for manual crafting, imported recipe id for the
-      recipe book → drop `JankCraftingRecipeMapping`); fix `CraftingHelper` (shared `ItemStack`s).
+- [x] 2.3 `CraftingRecipeTracker` now built from the registry via `util/LegacyRecipeAdapter` (real shapes,
+      all items per slot, fallback recipes); recipe book uses `util/GameRecipeLookup` (registry match →
+      recipe by id) → `JankCraftingRecipeMapping` removed; `CraftInInventoryTask` falls back to manual
+      crafting when no game recipe is found; `CraftingHelper` copies stacks. Tested in-game 1.21.1
+      (crafting table, wooden pickaxe, sticks, slabs, stairs with and without recipe book).
+      Also fixed three old bugs in manual crafting (`CraftGenericManuallyTask`): grid cleared by the
+      parent resource task, per-slot amount ignored items already owned, wrong "material left" check.
 - [ ] 2.4 `TaskCatalogue`: crafted/smelted entries from the registry; `CraftWithMatching*` → `choose`.
 - [ ] 2.5 Remove `CraftingRecipe`, `RecipeTarget`, `JankCraftingRecipeMapping`, `shapedRecipe*` helpers.
 - [ ] Later: smithing, stonecutter; reading data packs (1.21.2+ clients get no recipes from the server).

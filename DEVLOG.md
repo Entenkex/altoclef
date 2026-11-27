@@ -105,12 +105,39 @@ afterwards was not staged yet.
 
 ---
 
+### Preprocessor pattern for `Identifier.of` only matches simple arguments
+**Symptom:** `GameRecipeLookup` compiled on 1.21.1 but failed on 1.20.2 ("method of in class Identifier cannot
+be applied"). **Cause:** the `@Pattern` in `IdentifierVer` rewrites `Identifier.of(x)` to `new Identifier(x)`
+for older versions, but did not match `Identifier.of(match.closest().id())`. **Fix:** put the argument into a
+local variable first. **Lesson:** after using a `multiversion` pattern, compile an old version (1.20.1/1.16.5).
+
+### Old crafting tracker bugs fixed by the recipe registry (step 2.3)
+`CraftingRecipeTracker` (width ignored, only first item per ingredient), `JankCraftingRecipeMapping`
+(rebuilt every call, subset matching), `CraftInInventoryTask` (recipe book task even without a recipe → waits
+forever), `CraftingHelper.canCraftItemNow` (shared `ItemStack`s between branches, NPE before recipes arrived).
+
+### Crafting without recipe book looped forever (fill grid / clear grid)
+**Symptom:** with `core.useCraftingBookToCraft: false`, `@get oak_stairs 4` never finished; debug overlay
+alternated between "Moving [oak_log] to PlayerSlot 1" and "Clearing the 2x2 crafting grid".
+**Cause:** `ResourceTask` clears the 2x2 grid when the inventory is open, the grid is not empty and no child
+task is an `ITaskUsesCraftingGrid`. The recipe book task had that marker, `CraftGenericManuallyTask` did not, so
+the parent resource task emptied the grid the manual task was filling. Existed before the recipe registry.
+**Fix:** `CraftGenericManuallyTask implements ITaskUsesCraftingGrid`.
+
+### Manual crafting stuck when some output was already in the inventory
+**Symptom:** after the fix above, `@get oak_stairs 8` (4 stairs already in the inventory) spammed
+"Called MoveItemToSlotTask when item/not enough item is available! valid items: [oak_planks]" (284× in seconds).
+**Cause:** two old bugs in `CraftGenericManuallyTask`: items per slot were computed from the total target
+(8 → 2 planks per slot = 12) although materials were only collected for the missing 4 (6 planks); and the
+"do I still have material?" check looked at the item already in the slot (air for an empty slot) instead of
+the item that should go in, so it kept starting the move task without material.
+**Fix:** per-slot amount from the still missing count; check `toFill`'s items in the inventory.
+
 ## Known, not fixed yet
 
 - **2026-11-27:** `CraftingRecipeTracker` fills recipe slots linearly and ignores the recipe width, so narrow shaped
   recipes (1x2, 2x2 in a 3x3 grid) end up in the wrong slots; it also keeps only the first item per ingredient.
-  To be solved with the unified recipe format (TODO step 2). The new model places shapes correctly
-  (`RecipeShape.Shaped.toGrid`); the old tracker stays in use until step 2.3.
+  Fixed in step 2.3 (tracker now built from the recipe registry).
 - **2026-11-27:** `@recipes compare` (1.21.1): 295 of 306 hand-written `TaskCatalogue` recipes match the game.
   Wrong ones: `bamboo_button`/`bamboo_planks` (catalogue name `bamboo_block` does not exist → empty slots, can
   never be crafted), `brick_slab`/`brick_stairs`/`brick_wall` (use `brick` instead of `bricks`; wall also wrong
