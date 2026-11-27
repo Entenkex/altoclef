@@ -158,6 +158,12 @@ public class AltoClef implements ModInitializer {
 
         initializeCommands();
 
+        // Register settings of parts that are created lazily, so loading (and the one-time import of
+        // the old JSON configs) already knows them. Settings registered later still get their profile values.
+        adris.altoclef.butler.ButlerConfig.getInstance();
+        adris.altoclef.tasks.speedrun.BeatMinecraftConfig.get();
+        adris.altoclef.tasks.movement.MLGBucketTask.registerSettings();
+
         // Load settings
         adris.altoclef.Settings.load(newSettings -> {
             settings = newSettings;
@@ -211,6 +217,11 @@ public class AltoClef implements ModInitializer {
     // Client tick
     private void onClientTick() {
         runEnqueuedPostInits();
+
+        if (settings != null) {
+            adris.altoclef.settings.SettingsService.showStartupWarningsIfInWorld(
+                    settings.getCommandPrefix(), settings.shouldHideAllWarningLogs());
+        }
 
         inputControls.onTickPre();
 

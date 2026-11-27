@@ -1,16 +1,7 @@
 package adris.altoclef.util.helpers;
 
 import adris.altoclef.Debug;
-import adris.altoclef.util.serialization.*;
-import com.fasterxml.jackson.core.util.DefaultIndenter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.module.SimpleModule;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
+import adris.altoclef.util.serialization.IListConfigFile;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -23,7 +14,9 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Helps load settings/configuration files
+ * Loads simple list files (one entry per line, # for comments), e.g. the butler whitelist/blacklist.
+ * <p>
+ * Settings are not handled here anymore, see {@link adris.altoclef.settings.SettingsService}.
  */
 public class ConfigHelper {
 
@@ -38,78 +31,6 @@ public class ConfigHelper {
     public static void reloadAllConfigs() {
         for (Runnable reload : loadedConfigs.values()) {
             reload.run();
-        }
-    }
-
-    private static <T> T getConfig(String path, Supplier<T> getDefault, Class<T> classToLoad) {
-        T result = getDefault.get();
-        File loadFrom = getConfigFile(path);
-        if (!loadFrom.exists()) {
-            saveConfig(path, result);
-            return result;
-        }
-
-        ObjectMapper mapper = new ObjectMapper();
-        SimpleModule module = new SimpleModule();
-        module.addDeserializer(Vec3d.class, new Vec3dDeserializer());
-        module.addDeserializer(ChunkPos.class, new ChunkPosDeserializer());
-        module.addDeserializer(BlockPos.class, new BlockPosDeserializer());
-        mapper.registerModule(module);
-
-        boolean failed = false;
-        try {
-            result = mapper.readValue(loadFrom, classToLoad);
-        } catch (JsonMappingException ex) {
-            Debug.logError("Failed to parse Config file of type " + classToLoad.getSimpleName() + "at " + path + ". JSON Error Message: " + ex.getMessage() + ".\n JSON Error STACK TRACE:\n\n",ex);
-            if (result instanceof IFailableConfigFile failable)
-                failable.failedToLoad();
-            failed = true;
-        } catch (IOException e) {
-            Debug.logError("Failed to read Config at " + path + ".", e);
-            if (result instanceof IFailableConfigFile failable)
-                failable.failedToLoad();
-            failed = true;
-        }
-
-        // Save over to include NEW settings
-        // but only if a load was successful. Don't want to override user settings!
-        if (!failed) {
-            saveConfig(path, result);
-        }
-
-        return result;
-    }
-
-    public static <T> void loadConfig(String path, Supplier<T> getDefault, Class<T> classToLoad, Consumer<T> onReload) {
-        T result = getConfig(path, getDefault, classToLoad);
-        loadedConfigs.put(path, () -> onReload.accept(getConfig(path, getDefault, classToLoad)));
-        onReload.accept(result);
-    }
-
-    public static <T> void saveConfig(String path, T config) {
-        ObjectMapper mapper = new ObjectMapper();
-        SimpleModule module = new SimpleModule();
-        module.addSerializer(Vec3d.class, new Vec3dSerializer());
-        module.addSerializer(BlockPos.class, new BlockPosSerializer());
-        module.addSerializer(ChunkPos.class, new ChunkPosSerializer());
-        mapper.registerModule(module);
-
-        File toSave = getConfigFile(path);
-        if (!toSave.getParentFile().exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            toSave.getParentFile().mkdirs();
-        }
-
-        try {
-            mapper.enable(SerializationFeature.INDENT_OUTPUT);
-
-            // Pretty print and indent arrays too.
-            DefaultPrettyPrinter prettyPrinter = new DefaultPrettyPrinter();
-            prettyPrinter.indentArraysWith(DefaultIndenter.SYSTEM_LINEFEED_INSTANCE);
-
-            mapper.writer(prettyPrinter).writeValue(toSave, config);
-        } catch (IOException e) {
-            Debug.logError("Failed to save config!",e);
         }
     }
 

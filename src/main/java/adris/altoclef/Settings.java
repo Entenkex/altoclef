@@ -2,18 +2,13 @@ package adris.altoclef;
 
 import adris.altoclef.control.KillAura;
 import adris.altoclef.multiversion.versionedfields.Items;
+import adris.altoclef.settings.Setting;
+import adris.altoclef.settings.SettingsManager;
+import adris.altoclef.settings.SettingsService;
 import adris.altoclef.tasks.movement.DefaultGoToDimensionTask;
 import adris.altoclef.util.BlockRange;
-import adris.altoclef.util.helpers.ConfigHelper;
 import adris.altoclef.util.helpers.ItemHelper;
-import adris.altoclef.util.serialization.IFailableConfigFile;
-import adris.altoclef.util.serialization.ItemDeserializer;
-import adris.altoclef.util.serialization.ItemSerializer;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.Streams;
 import net.minecraft.item.Item;
 import net.minecraft.util.math.BlockPos;
@@ -21,594 +16,408 @@ import net.minecraft.util.math.BlockPos;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
- * The settings file, loaded and used across the codebase.
+ * The core settings of the mod (key prefix {@code core.}), used across the codebase.
  * <p>
- * Each setting is documented.
+ * Values come from the active settings profile ({@code altoclef/profiles/}), see {@link SettingsService}.
+ * All settings with defaults and limits are listed in the generated {@code altoclef/settings_reference.yml}.
  */
-@SuppressWarnings("ALL")
-@JsonIgnoreProperties(ignoreUnknown = true)
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
-public class Settings implements IFailableConfigFile {
+public class Settings {
 
-    public static final String SETTINGS_PATH = "altoclef_settings.json";
+    private static final String P = "core.";
+    private static final TypeReference<List<Item>> ITEM_LIST = new TypeReference<>() {
+    };
 
-    // Internal only.
-    // If settings failed to load, this will be set to warn the user.
-    @JsonIgnore
-    private transient boolean failedToLoad = false;
+    private static Settings instance;
 
-    //////////////////////////////////////////////////////////////////////////////////////////
-    ////////** BEGIN SETTINGS w/ COMMENTS **//////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////
+    private final Setting<Boolean> showDebugTickMs;
+    private final Setting<Boolean> showTaskChains;
+    private final Setting<Boolean> hideAllWarningLogs;
+    private final Setting<Boolean> showStackTracesInChat;
+    private final Setting<String> commandPrefix;
+    private final Setting<String> logLevel;
+    private final Setting<String> chatLogPrefix;
+    private final Setting<Boolean> showTimer;
+    private final Setting<Float> containerItemMoveDelay;
+    private final Setting<Boolean> useCraftingBookToCraft;
+    private final Setting<Float> resourcePickupDropRange;
+    private final Setting<Integer> minimumFoodAllowed;
+    private final Setting<Integer> foodUnitsToCollect;
+    private final Setting<Float> resourceChestLocateRange;
+    private final Setting<Float> resourceMineRange;
+    private final Setting<Boolean> avoidSearchingDungeonChests;
+    private final Setting<Boolean> avoidOceanBlocks;
+    private final Setting<Float> entityReachRange;
+    private final Setting<Boolean> collectPickaxeFirst;
+    private final Setting<Boolean> replantCrops;
+    private final Setting<Boolean> mobDefense;
+    private final Setting<KillAura.Strategy> forceFieldStrategy;
+    private final Setting<Boolean> dodgeProjectiles;
+    private final Setting<Boolean> killOrAvoidAnnoyingHostiles;
+    private final Setting<Boolean> avoidDrowning;
+    private final Setting<Boolean> autoCloseScreenWhenLookingOrMining;
+    private final Setting<Boolean> extinguishSelfWithWater;
+    private final Setting<Boolean> autoEat;
+    private final Setting<Boolean> autoMLGBucket;
+    private final Setting<Boolean> autoReconnect;
+    private final Setting<Boolean> autoRespawn;
+    private final Setting<DefaultGoToDimensionTask.OVERWORLD_TO_NETHER_BEHAVIOUR> overworldToNetherBehaviour;
+    private final Setting<Integer> netherFastTravelWalkingRange;
+    private final Setting<String> idleCommand;
+    private final Setting<String> deathCommand;
+    private final Setting<List<Item>> throwawayItems;
+    private final Setting<Integer> reservedBuildingBlockCount;
+    private final Setting<Boolean> dontThrowAwayCustomNameItems;
+    private final Setting<Boolean> dontThrowAwayEnchantedItems;
+    private final Setting<Boolean> throwAwayUnusedItems;
+    private final Setting<List<Item>> importantItems;
+    private final Setting<Boolean> limitFuelsToSupportedFuels;
+    private final Setting<List<Item>> supportedFuels;
+    private final Setting<BlockPos> homeBasePosition;
+    private final Setting<List<BlockRange>> areasToProtect;
 
-    /**
-     * If true, shows a debug bar displaying how much milliseconds is spend on altoclefs tick function
-     */
-    private boolean showDebugTickMs = false;
-
-    /**
-     * If true, text will appear on the top left showing the current
-     * task chain.
-     */
-    private boolean showTaskChains = true;
-
-    /**
-     * If true, all warning logs will be disabled.
-     * <p>
-     * NOT RECOMMENDED, as it will make debugging more difficult.
-     * But if you know what you're doing, go nuts.
-     */
-    private boolean hideAllWarningLogs = false;
-
-    /**
-     * The prefix for commands (ex. @gamer )
-     */
-    private String commandPrefix = "@";
-
-
-    /**
-     * Sets the log level of the mod; allowed values:
-     * ALL - all messages will be logged
-     * NORMAL - warnings and errors will be logged
-     * WARN - only warnings will be logged
-     * ERROR - only errors will be logged
-     * NONE - nothing will be logged
-     *
-     * dev note: NONE might not work completely for errors since some parts of the codebase bypass 'Debug.logError' calls and call 'System.err' directly instead
-     */
-    private String logLevel = "NORMAL";
-
-    /**
-     * When logging to chat, will prepend this to each log.
-     */
-    private String chatLogPrefix = "[Alto Clef] ";
-
-    /**
-     * If true, will show a timer.
-     */
-    private boolean showTimer = true;
-
-    /**
-     * The delay between moving items for crafting/furnace/any kind of inventory movement.
-     */
-    private float containerItemMoveDelay = 0.2f;
-
-    /**
-     * If true, use Minecraft's crafting recipe book to place items into
-     * the crafting table (should be much faster as it's almost instant)
-     * <p>
-     * If false, will place items in each slot manually (the original way)
-     */
-    private boolean useCraftingBookToCraft = true;
-
-    /**
-     * If a dropped resource item is further than this from the player, don't pick it up.
-     * <p>
-     * -1 (or less than 0) to disable.
-     */
-    private float resourcePickupDropRange = -1;
-
-
-    /**
-     * minimum amount of food to have in the inventory.
-     * if we have less food than this value the bot will go pickup some more.
-     */
-    private int minimumFoodAllowed = 0;
-
-
-    /**
-     * amount of food to collect when the food in inventory
-     * is lower than the value of minimumFoodAllowed
-     */
-    private int foodUnitsToCollect = 0;
-
-
-    /**
-     * Chests are cached for their contents.
-     * <p>
-     * If the bot is collecting a resource and finds a chest within this range,
-     * it will grab the resource from the chest.
-     * <p>
-     * Set this to 0 to disable chest pickups.
-     * <p>
-     * Don't set this too high, as the bot will prioritize chests even if the resource
-     * is easily accessible now.
-     */
-    private float resourceChestLocateRange = 500;
-
-    /**
-     * Some block resources are by default obtained through non-mining means.
-     * Crafting tables for example, are normally crafted using planks.
-     * <p>
-     * However, if the block resource is found within this range it may be mined first.
-     * <p>
-     * Set this to 0 to disable this feature
-     * (keep in mind, this will not affect blocks like "dirt" and "cobblestone"
-     * that can only be obtained through mining)
-     * <p>
-     * Set this to -1 to ALWAYS mine a block if it's catalogued.
-     * This is not recommended. For example, if the bot happens to track a
-     * crafting table 10000 blocks away, and it then tries obtaining one
-     * it will travel 10000 blocks to mine that table, even if it finds
-     * itself in a forest where the wood is abundant.
-     */
-    private float resourceMineRange = 100;
-
-    /**
-     * When going to the nearest chest to store items, the bot may normally
-     * dig up dungeons constantly. If this is set to true, the bot will
-     * search around each chest to make sure it's not in a dungeon.
-     */
-    private boolean avoidSearchingDungeonChests = true;
-
-    /**
-     * Will ignore mining/interacting with blocks that are BELOW an ocean (in an ocean biome and below y = 64)
-     * <p>
-     * This is mainly here because alto-clef does NOT know how to deal with oceans
-     */
-    private boolean avoidOceanBlocks = false;
-
-    /**
-     * How close we must be to attack/interact with an entity.
-     * 6 works well for singleplayer
-     * 4 works better on more restrictive multiplayer servers
-     */
-    private float entityReachRange = 4;
-
-    /**
-     * Before grabbing ANYTHING, get a pickaxe.
-     * <p>
-     * Will help with navigation as sometimes dropped items will be underground,
-     * but this behaviour only makes sense in regular minecraft worlds.
-     */
-    private boolean collectPickaxeFirst = true;
-
-    /**
-     * If set to true, crops broken when collecting food will be replanted.
-     */
-    private boolean replantCrops = true;
-
-    /**
-     * Uses killaura to move mobs away and performs survival moves including:
-     * - Running away from hostile mobs when your health is low
-     * - Run away from creepers about to blow up
-     * - Avoid wither skeletons and other really dangerous mobs
-     * - Attempting to dodge arrows and other projectiles
-     */
-    private boolean mobDefense = true;
-
-    /**
-     * Defines how force field behaves when "mobDefense" is set to true.
-     * Note that the force field is not here to KILL mobs, but PUSH THEM AWAY.
-     * <p>
-     * <p>
-     * Strategies:
-     * <p>
-     * FASTEST: All hostiles are attacked at every possible moment, every frame.
-     * DELAY: Closest hostile is attacked with a sword when your attack is charged up
-     * SMART: Closest hostile is attacked at max every 0.2 seconds.
-     * OFF: Off
-     */
-    private KillAura.Strategy forceFieldStrategy = KillAura.Strategy.SMART;
-
-    /**
-     * Only applies if mobDefense is on.
-     * <p>
-     * If enabled, will attempt to dodge all incoming projectiles
-     */
-    private boolean dodgeProjectiles = true;
-
-    /**
-     * Skeletons and large groups of mobs are a huge pain.
-     * <p>
-     * With this set to true, the bot may either
-     * kill or run away from mobs that stay too close for too long.
-     */
-    private boolean killOrAvoidAnnoyingHostiles = true;
-
-    /**
-     * If enabled, the bot will avoid going underwater if baritone
-     * isn't giving the bot movement instructions.
-     * <p>
-     * Baritone doesn't know how to move underwater so this should cause
-     * no problems, but disable it if you want the bot to be able to sink.
-     */
-    private boolean avoidDrowning = true;
-
-    /**
-     * If enabled, the bot will close the open screen (furnace/crafting/chest/whatever) when the bot detects
-     * that its look direction has changed OR that it is mining something.
-     * <p>
-     * This is here to stop the bot from getting stuck in a screen container.
-     */
-    private boolean autoCloseScreenWhenLookingOrMining = true;
-
-    /**
-     * If enabled, will attempt to extinguish ourselves when on fire (and not immune to fire)
-     */
-    private boolean extinguishSelfWithWater = true;
+    public Settings(SettingsManager m) {
+        showDebugTickMs = Setting.bool(P + "showDebugTickMs", false)
+                .description("Shows a debug bar with how many milliseconds AltoClef's tick takes.").register(m);
+        showTaskChains = Setting.bool(P + "showTaskChains", true)
+                .description("Shows the current task chain in the top left.").register(m);
+        hideAllWarningLogs = Setting.bool(P + "hideAllWarningLogs", false)
+                .description("Disables all warning logs. Not recommended, makes debugging harder.").register(m);
+        showStackTracesInChat = Setting.bool(P + "showStackTracesInChat", false)
+                .description("Show the full stack trace of errors in chat (for debugging). The log file always contains it.").register(m);
+        commandPrefix = Setting.string(P + "commandPrefix", "@")
+                .description("Prefix for AltoClef commands (e.g. @gamer).")
+                .check(v -> v.isBlank() ? "must not be empty" : null).register(m);
+        logLevel = Setting.string(P + "logLevel", "NORMAL")
+                .description("""
+                        Log level: ALL (everything), NORMAL (warnings and errors), WARN (only warnings),
+                        ERROR (only errors), NONE (nothing; some errors may still be printed).""")
+                .check(v -> Set.of("ALL", "NORMAL", "WARN", "ERROR", "NONE").contains(v)
+                        ? null : "must be one of ALL, NORMAL, WARN, ERROR, NONE").register(m);
+        chatLogPrefix = Setting.string(P + "chatLogPrefix", "[Alto Clef] ")
+                .description("Prepended to every log message in chat.").register(m);
+        showTimer = Setting.bool(P + "showTimer", true)
+                .description("Shows a timer.").register(m);
+        containerItemMoveDelay = Setting.floating(P + "containerItemMoveDelay", 0.2f).range(0f, 5f)
+                .description("Delay in seconds between item moves in inventories (crafting, furnace, chests).").register(m);
+        useCraftingBookToCraft = Setting.bool(P + "useCraftingBookToCraft", true)
+                .description("Use the recipe book to fill the crafting grid (much faster). If false, items are placed slot by slot.").register(m);
+        resourcePickupDropRange = Setting.floating(P + "resourcePickupDropRange", -1f).range(-1f, 10_000f)
+                .description("Dropped resource items further away than this are not picked up. -1 disables the limit.").register(m);
+        minimumFoodAllowed = Setting.integer(P + "minimumFoodAllowed", 0).range(0, 10_000)
+                .description("Minimum food (units) to keep in the inventory; below this the bot collects more.").register(m);
+        foodUnitsToCollect = Setting.integer(P + "foodUnitsToCollect", 0).range(0, 10_000)
+                .description("Food units to collect when food is below minimumFoodAllowed.").register(m);
+        resourceChestLocateRange = Setting.floating(P + "resourceChestLocateRange", 500f).range(0f, 10_000f)
+                .description("""
+                        Cached chests within this range are used to get resources from. 0 disables chest pickups.
+                        Don't set it too high, the bot then prefers chests even if the resource is close by.""").register(m);
+        resourceMineRange = Setting.floating(P + "resourceMineRange", 100f).range(-1f, 10_000f)
+                .description("""
+                        Blocks normally obtained otherwise (e.g. crafting tables) are mined if found within this range.
+                        0 disables it, -1 ALWAYS mines a catalogued block (not recommended, may travel very far).""").register(m);
+        avoidSearchingDungeonChests = Setting.bool(P + "avoidSearchingDungeonChests", true)
+                .description("When storing items, check the area around a chest so the bot doesn't keep digging up dungeons.").register(m);
+        avoidOceanBlocks = Setting.bool(P + "avoidOceanBlocks", false)
+                .description("Ignore blocks below an ocean (ocean biome, below y=64). AltoClef can't handle oceans.").register(m);
+        entityReachRange = Setting.floating(P + "entityReachRange", 4f).range(0f, 10f)
+                .description("How close the bot must be to attack/interact with an entity. 6 works in singleplayer, 4 on stricter servers.").register(m);
+        collectPickaxeFirst = Setting.bool(P + "collectPickaxeFirst", true)
+                .description("Get a pickaxe before collecting anything (helps when drops are underground).").register(m);
+        replantCrops = Setting.bool(P + "replantCrops", true)
+                .description("Replant crops that were broken while collecting food.").register(m);
+        mobDefense = Setting.bool(P + "mobDefense", true)
+                .description("Kill aura and survival moves: run from hostiles at low health, from creepers, avoid dangerous mobs, dodge projectiles.").register(m);
+        forceFieldStrategy = Setting.enumeration(P + "forceFieldStrategy", KillAura.Strategy.class, KillAura.Strategy.SMART)
+                .description("""
+                        Force field behaviour when mobDefense is on (pushes mobs away, not meant to kill):
+                        FASTEST: attack all hostiles every frame. DELAY: attack the closest when the attack is charged.
+                        SMART: attack the closest at most every 0.2 s. OFF: off.""").register(m);
+        dodgeProjectiles = Setting.bool(P + "dodgeProjectiles", true)
+                .description("With mobDefense: try to dodge incoming projectiles.").register(m);
+        killOrAvoidAnnoyingHostiles = Setting.bool(P + "killOrAvoidAnnoyingHostiles", true)
+                .description("Kill or run from mobs that stay close for too long (skeletons, large groups).").register(m);
+        avoidDrowning = Setting.bool(P + "avoidDrowning", true)
+                .description("Avoid going underwater when baritone gives no movement instructions.").register(m);
+        autoCloseScreenWhenLookingOrMining = Setting.bool(P + "autoCloseScreenWhenLookingOrMining", true)
+                .description("Close open screens when the look direction changes or the bot mines (prevents getting stuck in a container).").register(m);
+        extinguishSelfWithWater = Setting.bool(P + "extinguishSelfWithWater", true)
+                .description("Extinguish yourself when on fire (and not fire immune).").register(m);
+        autoEat = Setting.bool(P + "autoEat", true)
+                .description("Eat when hungry or in danger.").register(m);
+        autoMLGBucket = Setting.bool(P + "autoMLGBucket", true)
+                .description("MLG / no-fall bucket when knocked off course and falling.").register(m);
+        autoReconnect = Setting.bool(P + "autoReconnect", true)
+                .description("Reconnect to the last server after a disconnect. If false the bot stops on disconnect.").register(m);
+        autoRespawn = Setting.bool(P + "autoRespawn", true)
+                .description("Respawn instantly after death. If false the bot stops when it dies.").register(m);
+        overworldToNetherBehaviour = Setting.enumeration(P + "overworldToNetherBehaviour",
+                        DefaultGoToDimensionTask.OVERWORLD_TO_NETHER_BEHAVIOUR.class,
+                        DefaultGoToDimensionTask.OVERWORLD_TO_NETHER_BEHAVIOUR.BUILD_PORTAL_VANILLA)
+                .description("""
+                        What to do if the bot must go to the nether but finds no portal:
+                        BUILD_PORTAL_VANILLA: build one (obsidian or water bucket + lava). GO_TO_HOME_BASE: go to homeBasePosition and assume a portal there.""").register(m);
+        netherFastTravelWalkingRange = Setting.integer(P + "netherFastTravelWalkingRange", 600).range(0, 100_000)
+                .description("When fast travelling through the nether, walk if closer than this in the overworld.").register(m);
+        idleCommand = Setting.string(P + "idleCommand", "")
+                .description("""
+                        Command to run when nothing else runs, e.g. "idle", "follow <name>" or "goto <coords>". Empty = none.""").register(m);
+        deathCommand = Setting.string(P + "deathCommand", "")
+                .description("""
+                        Command(s) to run after death; {deathmessage} is replaced with the death message.
+                        Several commands can be separated with " & ", e.g. "/home & I died: {deathmessage} & @get diamond".""").register(m);
+        throwawayItems = Setting.of(P + "throwawayItems", ITEM_LIST, Arrays.asList(
+                        // Overworld junk
+                        Items.DRIPSTONE_BLOCK,
+                        Items.ROOTED_DIRT,
+                        Items.GRAVEL,
+                        Items.SAND,
+                        Items.DIORITE,
+                        Items.ANDESITE,
+                        Items.GRANITE,
+                        Items.TUFF,
+                        Items.COBBLESTONE,
+                        Items.DIRT,
+                        Items.COBBLED_DEEPSLATE,
+                        Items.ACACIA_LEAVES, Items.BIRCH_LEAVES, Items.DARK_OAK_LEAVES, Items.OAK_LEAVES, Items.JUNGLE_LEAVES, Items.SPRUCE_LEAVES,
+                        // Nether junk, mostly tuned for the "beat game" task
+                        Items.NETHERRACK,
+                        Items.MAGMA_BLOCK,
+                        Items.SOUL_SOIL,
+                        Items.SOUL_SAND,
+                        Items.NETHER_BRICKS,
+                        Items.NETHER_BRICK,
+                        Items.BASALT,
+                        Items.BLACKSTONE,
+                        Items.END_STONE,
+                        Items.SANDSTONE,
+                        Items.STONE_BRICKS))
+                .description("Thrown away first when something has to be thrown away.").register(m);
+        reservedBuildingBlockCount = Setting.integer(P + "reservedBuildingBlockCount", 64).range(0, 2304)
+                .description("How many throwaway blocks to keep as building blocks.").register(m);
+        dontThrowAwayCustomNameItems = Setting.bool(P + "dontThrowAwayCustomNameItems", true)
+                .description("Items with a custom name count as important and are never thrown away.").register(m);
+        dontThrowAwayEnchantedItems = Setting.bool(P + "dontThrowAwayEnchantedItems", true)
+                .description("Enchanted items count as important and are never thrown away.").register(m);
+        throwAwayUnusedItems = Setting.bool(P + "throwAwayUnusedItems", true)
+                .description("""
+                        If no throwaway items are left, throw away any unimportant item the current tasks don't need.
+                        Careful: anything not in importantItems may be thrown away.""").register(m);
+        importantItems = Setting.of(P + "importantItems", ITEM_LIST, Streams.concat(
+                        Stream.of(
+                                Items.TOTEM_OF_UNDYING,
+                                Items.ENCHANTED_GOLDEN_APPLE,
+                                Items.ENDER_EYE,
+                                Items.TRIDENT,
+                                Items.DIAMOND,
+                                Items.DIAMOND_BLOCK,
+                                Items.NETHERITE_SCRAP,
+                                Items.NETHERITE_INGOT,
+                                Items.NETHERITE_BLOCK
+                        ),
+                        Stream.of(ItemHelper.DIAMOND_ARMORS),
+                        Stream.of(ItemHelper.NETHERITE_ARMORS),
+                        Stream.of(ItemHelper.DIAMOND_TOOLS),
+                        Stream.of(ItemHelper.NETHERITE_TOOLS),
+                        // Don't throw away shulker boxes, that would be pretty bad
+                        Stream.of(ItemHelper.SHULKER_BOXES)
+                ).toList())
+                .description("Never thrown away, even with throwAwayUnusedItems.").register(m);
+        limitFuelsToSupportedFuels = Setting.bool(P + "limitFuelsToSupportedFuels", true)
+                .description("""
+                        Only burn items from supportedFuels when smelting. If false, ALL burnable unprotected items
+                        may be burned (blaze rods, beds, wooden tools, crafting tables, ...).""").register(m);
+        supportedFuels = Setting.of(P + "supportedFuels", ITEM_LIST, Arrays.asList(Items.COAL, Items.CHARCOAL))
+                .description("Fuels used when limitFuelsToSupportedFuels is true.").register(m);
+        homeBasePosition = Setting.of(P + "homeBasePosition", BlockPos.class, new BlockPos(0, 64, 0))
+                .description("The bot's home base (\"x, y, z\"). Only used by tasks that are told to use it.").register(m);
+        areasToProtect = Setting.of(P + "areasToProtect", new TypeReference<List<BlockRange>>() {
+                }, Collections.<BlockRange>emptyList())
+                .description("""
+                        Areas that are never mined (anti grief / spawn protection). Example:
+                        - {start: "-10, 0, -10", end: "10, 255, 10"}
+                        - {start: "1000, 50, 2000", end: "1200, 255, 2100", dimension: NETHER}""").register(m);
+    }
 
     /**
-     * If true, eat when we're hungry or in danger.
+     * Creates the core settings once, loads the active profile and calls {@code onReload} now and after every reload.
      */
-    private boolean autoEat = true;
-
-    /**
-     * If true, MLG/No Fall Bucket if we're knocked off course and falling.
-     */
-    private boolean autoMLGBucket = true;
-
-    /**
-     * If true, will automatically reconnect to the last open server if you get disconnected.
-     * <p>
-     * If disabled, the bot will stop running when you disconnect from a server.
-     */
-    private boolean autoReconnect = true;
-
-    /**
-     * If true, will automatically respawn instantly if you die.
-     * <p>
-     * If disabled, the bot will stop running when you die.
-     */
-    private boolean autoRespawn = true;
-
-    /**
-     * This setting lets you configure what the bot should do if it needs to go to the nether
-     * but can't find a nether portal immediately.
-     * <p>
-     * Options:
-     * BUILD_PORTAL_VANILLA: Builds a nether portal, either with obsidian or with a water bucket and lava pool.
-     * GO_TO_HOME_BASE: Travel to the set home coordinates and assume there's a portal there.
-     */
-    private DefaultGoToDimensionTask.OVERWORLD_TO_NETHER_BEHAVIOUR overworldToNetherBehaviour = DefaultGoToDimensionTask.OVERWORLD_TO_NETHER_BEHAVIOUR.BUILD_PORTAL_VANILLA;
-
-    /**
-     * When fast traveling via the nether, walk to our destination if we somehow end up closer than this range in the overworld.
-     * We will normally travel well within this range (to within 100 blocks if not within a few), so keep this value ~decently~ large.
-     */
-    private int netherFastTravelWalkingRange = 600;
-
-    /**
-     * If set, will run this command by default when no other commands are running.
-     * <p>
-     * For example, try setting this to "idle" to make the bot continue surviving/eating/escaping mobs.
-     * Or "follow <Your Username>" to follow you when not doing anything.
-     * Or "goto <Home base coords>" to return to home base when the bot finishes its work.
-     */
-    private String idleCommand = "";
-
-
-    /**
-     * If set, will run this command after death.
-     * Also {deathmessage} will be replaced with the death message.
-     * <p>
-     * For example, try setting this to "@goto <Your base coords>" to make the bot go to the base before continuing the task it was given.
-     * Or setting it to "I died!" will send the i died message
-     * Or setting it to "/back" will execute /back on the server
-     * When running altoclef commands, if the prefix is not @, the set prefix should be used for the command and not @
-     * You may run multiple commands even commands of differet type by splitting them with " & ". Example: /home & i died with message: {deathmessage} & @get diamond
-     */
-    private String deathCommand = "";
-
-    /**
-     * If we need to throw away something, throw away these items first.
-     */
-    @JsonSerialize(using = ItemSerializer.class)
-    @JsonDeserialize(using = ItemDeserializer.class)
-    private List<Item> throwawayItems = Arrays.asList(
-            // Overworld junk
-            Items.DRIPSTONE_BLOCK,
-            Items.ROOTED_DIRT,
-            Items.GRAVEL,
-            Items.SAND,
-            Items.DIORITE,
-            Items.ANDESITE,
-            Items.GRANITE,
-            Items.TUFF,
-            Items.COBBLESTONE,
-            Items.DIRT,
-            Items.COBBLED_DEEPSLATE,
-            Items.ACACIA_LEAVES, Items.BIRCH_LEAVES, Items.DARK_OAK_LEAVES, Items.OAK_LEAVES, Items.JUNGLE_LEAVES, Items.SPRUCE_LEAVES,
-            // Nether junk, to be fair it's mostly tuned for the "beat game" task
-            Items.NETHERRACK,
-            Items.MAGMA_BLOCK,
-            Items.SOUL_SOIL,
-            Items.SOUL_SAND,
-            Items.NETHER_BRICKS,
-            Items.NETHER_BRICK,
-            Items.BASALT,
-            Items.BLACKSTONE,
-            Items.END_STONE,
-            Items.SANDSTONE,
-            Items.STONE_BRICKS
-    );
-
-    /**
-     * How many throwaway blocks to keep as building blocks.
-     */
-    private int reservedBuildingBlockCount = 64;
-
-    /**
-     * If true, items with custom names will be protected/marked as "important"
-     * so they won't be thrown away.
-     */
-    private boolean dontThrowAwayCustomNameItems = true;
-    private boolean dontThrowAwayEnchantedItems = true;
-
-    /**
-     * If we need to throw away something but we don't have any "throwaway Items",
-     * throw away any unimportant item that's not currently needed in our task chain.
-     * <p>
-     * Careful with this! If true, any item not in "importantItems" is liable to be thrown away.
-     */
-    private boolean throwAwayUnusedItems = true;
-
-    /**
-     * We will NEVER throw away these items.
-     * Even if "throwAwayUnusedItems" is true and one of these items is not used in a task.
-     */
-    @JsonSerialize(using = ItemSerializer.class)
-    @JsonDeserialize(using = ItemDeserializer.class)
-    private List<Item> importantItems = Streams.concat(
-            Stream.of(
-                    Items.TOTEM_OF_UNDYING,
-                    Items.ENCHANTED_GOLDEN_APPLE,
-                    Items.ENDER_EYE,
-                    Items.TRIDENT,
-                    Items.DIAMOND,
-                    Items.DIAMOND_BLOCK,
-                    Items.NETHERITE_SCRAP,
-                    Items.NETHERITE_INGOT,
-                    Items.NETHERITE_BLOCK
-            ),
-            Stream.of(ItemHelper.DIAMOND_ARMORS),
-            Stream.of(ItemHelper.NETHERITE_ARMORS),
-            Stream.of(ItemHelper.DIAMOND_TOOLS),
-            Stream.of(ItemHelper.NETHERITE_TOOLS),
-            // Don't throw away shulker boxes that would be pretty bad lol
-            Stream.of(ItemHelper.SHULKER_BOXES)
-    ).toList();
-
-
-
-    /**
-     * If true, will only accept items found in `supportedFuels` as fuel when smelting.
-     * <p>
-     * Be careful when setting this to false, as ALL burnable items are liable to be burned
-     * if they're not protected (blaze rods, beds, wooden tools, crafting tables etc.)
-     */
-    private boolean limitFuelsToSupportedFuels = true;
-
-    /**
-     * If `limitFuelsToSupportedFuels` is true, will use these items and ONLY these items as smelting fuel.
-     */
-    @JsonSerialize(using = ItemSerializer.class)
-    @JsonDeserialize(using = ItemDeserializer.class)
-    private List<Item> supportedFuels = Streams.concat(
-            Stream.of(
-                    Items.COAL,
-                    Items.CHARCOAL
-            )
-    ).toList();
-
-    /**
-     * Where "home base" is for the bot.
-     * Some tasks use this value if you tell them to,
-     * but don't worry about changing this unless you NEED it.
-     */
-    private BlockPos homeBasePosition = new BlockPos(0, 64, 0);
-
-    /**
-     * These areas will not be mined.
-     * Used to prevent griefing, or to define a "spawn protection" zone so
-     * the bot doesn't keep trying to break spawn protected blocks.
-     * <p>
-     * Example: protects two areas. A "spawn" area from (x=-10 z=-10) to (x=10 z=10) and a home base at around (x = 1100, y = 2050)
-     * <p>
-     * areasToProtect : [
-     * {
-     * start: "-10, 0, -10",
-     * end: "10, 255, 10"
-     * },
-     * {
-     * start: "1000, 50, 2000",
-     * end: "1200, 255, 2100"
-     * },
-     * ],
-     */
-    private List<BlockRange> areasToProtect = Collections.emptyList();
-
-
-    //////////////////////////////////////////////////////////////////////////////////////////
-    ////////** END SETTINGS w/ COMMENTS **////////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////
-
     public static void load(Consumer<Settings> onReload) {
-        ConfigHelper.loadConfig(SETTINGS_PATH, Settings::new, Settings.class, onReload);
+        if (instance == null) {
+            instance = new Settings(SettingsService.manager());
+            Settings settings = instance;
+            SettingsService.manager().addReloadListener(() -> onReload.accept(settings));
+        }
+        SettingsService.load();
     }
 
     public boolean shouldShowTaskChain() {
-        return showTaskChains;
+        return showTaskChains.get();
     }
 
     public boolean shouldShowDebugTickMs() {
-        return showDebugTickMs;
+        return showDebugTickMs.get();
     }
 
     public boolean shouldHideAllWarningLogs() {
-        return hideAllWarningLogs;
+        return hideAllWarningLogs.get();
+    }
+
+    public boolean shouldShowStackTracesInChat() {
+        return showStackTracesInChat.get();
     }
 
     public String getLogLevel() {
-        return logLevel;
+        return logLevel.get();
     }
 
     public String getCommandPrefix() {
-        return commandPrefix;
+        return commandPrefix.get();
     }
 
     public String getChatLogPrefix() {
-        return chatLogPrefix;
+        return chatLogPrefix.get();
     }
 
     public boolean shouldShowTimer() {
-        return showTimer;
+        return showTimer.get();
     }
 
     public float getResourcePickupRange() {
-        return resourcePickupDropRange;
+        return resourcePickupDropRange.get();
     }
 
     public float getResourceChestLocateRange() {
-        return resourceChestLocateRange;
+        return resourceChestLocateRange.get();
     }
 
     public float getResourceMineRange() {
-        return resourceMineRange;
+        return resourceMineRange.get();
     }
 
     public float getContainerItemMoveDelay() {
-        return containerItemMoveDelay;
+        return containerItemMoveDelay.get();
     }
 
     public boolean shouldUseCraftingBookToCraft() {
-        return useCraftingBookToCraft;
+        return useCraftingBookToCraft.get();
     }
 
     public int getFoodUnitsToCollect() {
-        return foodUnitsToCollect;
+        return foodUnitsToCollect.get();
     }
 
     public int getMinimumFoodAllowed() {
-        return minimumFoodAllowed;
+        return minimumFoodAllowed.get();
     }
 
     public boolean isMobDefense() {
-        return mobDefense;
+        return mobDefense.get();
     }
 
     public boolean isDodgeProjectiles() {
-        return dodgeProjectiles;
+        return dodgeProjectiles.get();
     }
 
     public boolean isAutoEat() {
-        return autoEat;
+        return autoEat.get();
     }
 
     public boolean isAutoReconnect() {
-        return autoReconnect;
+        return autoReconnect.get();
     }
 
     public boolean isAutoRespawn() {
-        return autoRespawn;
+        return autoRespawn.get();
     }
 
     public boolean shouldReplantCrops() {
-        return replantCrops;
+        return replantCrops.get();
     }
 
     public boolean shouldDealWithAnnoyingHostiles() {
-        return killOrAvoidAnnoyingHostiles;
+        return killOrAvoidAnnoyingHostiles.get();
     }
 
     public KillAura.Strategy getForceFieldStrategy() {
-        return forceFieldStrategy;
+        return forceFieldStrategy.get();
     }
 
     public String getIdleCommand() {
-        return idleCommand;
+        return idleCommand.get();
     }
 
     public String getDeathCommand() {
-        return deathCommand;
+        return deathCommand.get();
     }
 
     public boolean shouldRunIdleCommandWhenNotActive() {
-        return idleCommand != null && !idleCommand.isBlank();
+        String command = idleCommand.get();
+        return command != null && !command.isBlank();
     }
 
     public boolean shouldAutoMLGBucket() {
-        return autoMLGBucket;
+        return autoMLGBucket.get();
     }
 
     public boolean shouldCollectPickaxeFirst() {
-        return collectPickaxeFirst;
+        return collectPickaxeFirst.get();
     }
 
     public boolean shouldAvoidDrowning() {
-        return avoidDrowning;
+        return avoidDrowning.get();
     }
 
     public boolean shouldCloseScreenWhenLookingOrMining() {
-        return autoCloseScreenWhenLookingOrMining;
+        return autoCloseScreenWhenLookingOrMining.get();
     }
 
     public boolean shouldExtinguishSelfWithWater() {
-        return extinguishSelfWithWater;
+        return extinguishSelfWithWater.get();
     }
 
     public boolean shouldAvoidSearchingForDungeonChests() {
-        return avoidSearchingDungeonChests;
+        return avoidSearchingDungeonChests.get();
     }
 
     public boolean shouldAvoidOcean() {
-        return avoidOceanBlocks;
+        return avoidOceanBlocks.get();
     }
 
     public boolean isThrowaway(Item item) {
-        return throwawayItems.contains(item);
+        return throwawayItems.get().contains(item);
     }
 
     public boolean isImportant(Item item) {
-        return importantItems.contains(item);
+        return importantItems.get().contains(item);
     }
 
     public boolean shouldThrowawayUnusedItems() {
-        return this.throwAwayUnusedItems;
+        return throwAwayUnusedItems.get();
     }
 
     public int getReservedBuildingBlockCount() {
-        return this.reservedBuildingBlockCount;
+        return reservedBuildingBlockCount.get();
     }
 
     public boolean getDontThrowAwayCustomNameItems() {
-        return this.dontThrowAwayCustomNameItems;
+        return dontThrowAwayCustomNameItems.get();
     }
 
     public boolean getDontThrowAwayEnchantedItems() {
-        return this.dontThrowAwayEnchantedItems;
+        return dontThrowAwayEnchantedItems.get();
     }
 
     public float getEntityReachRange() {
-        return entityReachRange;
+        return entityReachRange.get();
     }
 
     public Item[] getThrowawayItems(boolean includeProtected) {
-        return throwawayItems.stream().filter(item -> includeProtected || !AltoClef.getInstance().getBehaviour().isProtected(item)).toArray(Item[]::new);
+        return throwawayItems.get().stream().filter(item -> includeProtected || !AltoClef.getInstance().getBehaviour().isProtected(item)).toArray(Item[]::new);
     }
 
     public Item[] getThrowawayItems(AltoClef mod) {
@@ -616,47 +425,40 @@ public class Settings implements IFailableConfigFile {
     }
 
     public boolean shouldLimitFuelsToSupportedFuels() {
-        return limitFuelsToSupportedFuels;
+        return limitFuelsToSupportedFuels.get();
     }
-
 
     public boolean isSupportedFuel(Item item) {
-        return !limitFuelsToSupportedFuels || supportedFuels.contains(item);
+        return !limitFuelsToSupportedFuels.get() || supportedFuels.get().contains(item);
     }
 
-    @JsonIgnore
     public Item[] getSupportedFuelItems() {
-        return supportedFuels.toArray(Item[]::new);
+        return supportedFuels.get().toArray(Item[]::new);
     }
 
     public boolean isPositionExplicitlyProtected(BlockPos pos) {
-        if (!areasToProtect.isEmpty()) {
-            for (BlockRange protection : areasToProtect) {
-                if (protection.contains(pos)) return true;
-            }
+        for (BlockRange protection : areasToProtect.get()) {
+            if (protection.contains(pos)) return true;
         }
         return false;
     }
 
     public DefaultGoToDimensionTask.OVERWORLD_TO_NETHER_BEHAVIOUR getOverworldToNetherBehaviour() {
-        return overworldToNetherBehaviour;
+        return overworldToNetherBehaviour.get();
     }
 
     public int getNetherFastTravelWalkingRange() {
-        return netherFastTravelWalkingRange;
+        return netherFastTravelWalkingRange.get();
     }
 
     public BlockPos getHomeBasePosition() {
-        return homeBasePosition;
+        return homeBasePosition.get();
     }
 
-    @Override
-    public void onFailLoad() {
-        failedToLoad = true;
-    }
-
-    @Override
+    /**
+     * True if the last profile load had problems (missing/broken files). Values that were only clamped don't count.
+     */
     public boolean failedToLoad() {
-        return failedToLoad;
+        return SettingsService.lastLoadFailed();
     }
 }

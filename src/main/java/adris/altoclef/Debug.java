@@ -22,7 +22,7 @@ public class Debug {
 
     private static String getLogPrefix() {
         AltoClef altoClef = AltoClef.getInstance();
-        if (altoClef != null) {
+        if (altoClef != null && altoClef.getModSettings() != null) {
             return altoClef.getModSettings().getChatLogPrefix();
         }
         return "[Alto Clef] ";
@@ -54,7 +54,9 @@ public class Debug {
         }
 
         AltoClef altoClef = AltoClef.getInstance();
-        if (altoClef != null && !altoClef.getModSettings().shouldHideAllWarningLogs()) {
+        // Settings may not be loaded yet (warnings while loading the profile itself).
+        boolean hidden = altoClef != null && altoClef.getModSettings() != null && altoClef.getModSettings().shouldHideAllWarningLogs();
+        if (altoClef != null && !hidden) {
             if (MinecraftClient.getInstance() != null && MinecraftClient.getInstance().player != null) {
                 String msg = "\u00A72\u00A7l\u00A7o" + getLogPrefix() + "\u00A7c" + message + "\u00A7r";
                 MinecraftClient.getInstance().player.sendMessage(Text.of(msg), false);
@@ -67,6 +69,18 @@ public class Debug {
         logWarning(String.format(format, args));
     }
 
+    /**
+     * Feedback for a wrong user input (e.g. an invalid command argument): red chat message, no stack trace.
+     * Always shown, independent of log level and hideAllWarningLogs, because it answers something the user typed.
+     */
+    public static void logUserError(String message) {
+        System.out.println("ALTO CLEF: " + message);
+        if (MinecraftClient.getInstance() != null && MinecraftClient.getInstance().player != null) {
+            String msg = "\u00A72\u00A7l\u00A7o" + getLogPrefix() + "\u00A7r\u00A7c" + message + "\u00A7r";
+            MinecraftClient.getInstance().player.sendMessage(Text.of(msg), false);
+        }
+    }
+
     public static void logError(String message) {
         String stacktrace = getStack(2);
 
@@ -77,9 +91,27 @@ public class Debug {
         }
 
         if (MinecraftClient.getInstance() != null && MinecraftClient.getInstance().player != null) {
-            String msg = "\u00A72\u00A7l\u00A7c" + getLogPrefix() + "[ERROR] " + message + "\nat:\n" + stacktrace + "\u00A7r";
+            // The stack trace is always in the log; in chat only if enabled (core.showStackTracesInChat).
+            String trace = showStackTracesInChat() ? "\nat:\n" + stacktrace : "";
+            String msg = "\u00A72\u00A7l\u00A7c" + getLogPrefix() + "[ERROR] " + message + trace + "\u00A7r";
             MinecraftClient.getInstance().player.sendMessage(Text.of(msg), false);
         }
+    }
+
+    private static boolean showStackTracesInChat() {
+        AltoClef altoClef = AltoClef.getInstance();
+        return altoClef != null && altoClef.getModSettings() != null && altoClef.getModSettings().shouldShowStackTracesInChat();
+    }
+
+    /**
+     * Several lines as ONE chat message (header with prefix, then the lines), instead of one message per line.
+     */
+    public static void logLines(String header, java.util.List<String> lines) {
+        StringBuilder text = new StringBuilder(header);
+        for (String line : lines) {
+            text.append('\n').append(line);
+        }
+        logMessage(text.toString());
     }
 
     public static void logError(String format, Object... args) {

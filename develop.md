@@ -6,9 +6,25 @@
 
 - **JDK 21** to run Gradle and compile the mod (Gradle 8.8 does not run on newer JDKs such as 25).
   The jar for older Minecraft versions is still downgraded to Java 17 / 8 automatically.
+  If your default `java` is newer, the build fails right away with just the Java version as error
+  (e.g. `What went wrong: 25.0.5.1`). Fix it once per machine by pinning Gradle to JDK 21 in your user
+  `gradle.properties` (see [Memory](#memory) for where that file is):
+  ```properties
+  # Linux
+  org.gradle.java.home=/usr/lib/jvm/java-21-openjdk-amd64
+  # Windows (forward slashes or escaped backslashes)
+  org.gradle.java.home=C:/Program Files/Eclipse Adoptium/jdk-21.0.x-hotspot
+  ```
+  Alternatively set `JAVA_HOME` for a single command (see [Command line](#get-it-running-command-line)).
+  In IntelliJ, set the Gradle JVM to 21 instead (see below).
 - **JDK 8** installed as well. It is only used as Gradle toolchain to build the preprocessor
-  plugin (see below); nothing of it ends up in the mod. Gradle finds it automatically
-  (e.g. `/usr/lib/jvm` on Linux, `sudo apt install openjdk-8-jdk-headless`).
+  plugin (see below); nothing of it ends up in the mod. Gradle finds it automatically in the usual
+  install locations:
+  - Linux: `sudo apt install openjdk-8-jdk-headless` (lands in `/usr/lib/jvm`)
+  - Windows: install e.g. [Eclipse Temurin 8](https://adoptium.net/temurin/releases/?version=8) (JDK, `.msi`)
+  - If Gradle still doesn't find it ("Cannot find a Java installation ... languageVersion=8"), add its path in
+    your user `gradle.properties` (see [Memory](#memory) for where that file is):
+    `org.gradle.java.installations.paths=C:/Program Files/Eclipse Adoptium/jdk-8.0.xxx-hotspot`
 - **Git submodules**: clone with `git clone --recurse-submodules ...`, or run
   `git submodule update --init` in an existing clone.
 - **RAM**: configuring all 12 Minecraft versions is heavy. See [Memory](#memory) below.
@@ -58,16 +74,50 @@ If the gradle tab doesn't exist, try `View > Tool Windows > Gradle`
 1) Git Clone project with submodules: `git clone --recurse-submodules <url>`
 2) `cd` into cloned local repo
 3) `chmod +x gradlew` (skip this step if you are on windows)
-4) `./gradlew build` or `./gradlew :1.21.1:runClient`
-   (if your default `java` is not 21, prefix the command with `JAVA_HOME=/path/to/jdk-21`)
+4) Build or start the game, e.g. for 1.21.1 (see the version filter below for what `-P...` does):
+
+Linux / macOS:
+
+```bash
+./gradlew :1.21.1:runClient -Paltoclef.versions=1.21.1
+# if your default java is not 21:
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew :1.21.1:runClient -Paltoclef.versions=1.21.1
+```
+
+Windows (PowerShell, in the repo folder):
+
+```powershell
+.\gradlew.bat :1.21.1:runClient "-Paltoclef.versions=1.21.1"
+# if your default java is not 21 (only for this window):
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-21.0.x-hotspot"
+.\gradlew.bat :1.21.1:runClient "-Paltoclef.versions=1.21.1"
+```
+
+Windows (cmd):
+
+```bat
+set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-21.0.x-hotspot
+gradlew.bat :1.21.1:runClient -Paltoclef.versions=1.21.1
+```
+
+In PowerShell, keep the quotes around `-Paltoclef.versions=...`: without them PowerShell may split the
+argument at the dot. All other commands in this guide work the same on Windows with `.\gradlew.bat`
+instead of `./gradlew`.
+
+The game started by `runClient` uses `versions/<version>/run/` as its `.minecraft` folder, so the AltoClef
+settings end up in `versions/<version>/run/altoclef/`.
 
 The first run downloads Gradle, Minecraft, mappings and Fabric API for every version and sets them up.
-This takes a long time (15+ minutes) and several GB in `~/.gradle`; later runs use the cache.
+This takes a long time (15+ minutes) and several GB in the Gradle user folder (`~/.gradle`, on Windows
+`%USERPROFILE%\.gradle`); later runs use the cache.
 
 ### Building only some versions (version filter)
 
-By default all 12 versions are configured, even if you only build or test one. For local development pass
-`-Paltoclef.versions=<versions>` (comma separated):
+By default all 12 versions are configured, even if you only build or test one: Gradle sets up Minecraft,
+mappings and remapped Fabric API for each of them, which costs a lot of time and RAM. For local development pass
+`-Paltoclef.versions=<versions>` (comma separated). `-P` sets a Gradle project property; `altoclef.versions`
+is read in `settings.gradle.kts` and decides which version projects are included. It is optional: without it
+the command does the same, just slower and with much more memory.
 
 ```bash
 ./gradlew :1.21.1:test -Paltoclef.versions=1.21.1
@@ -96,7 +146,8 @@ Reports: `versions/<version>/build/reports/tests/test/index.html`.
 
 The project `gradle.properties` allows the Gradle daemon 8 GB heap and parallel builds. On machines with
 little RAM (or little swap) this can freeze the whole system while all versions are configured.
-Override it for your machine in `~/.gradle/gradle.properties` (takes precedence over the project file), e.g.:
+Override it for your machine in the user `gradle.properties` (takes precedence over the project file):
+`~/.gradle/gradle.properties` on Linux/macOS, `%USERPROFILE%\.gradle\gradle.properties` on Windows. For example:
 
 ```properties
 org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC

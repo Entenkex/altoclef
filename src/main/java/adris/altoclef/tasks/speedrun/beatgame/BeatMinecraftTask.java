@@ -82,13 +82,9 @@ public class BeatMinecraftTask extends Task {
     // We don't want curse of binding
     private static final Predicate<ItemStack> noCurseOfBinding = stack -> !EnchantmentHelper.hasAnyEnchantmentsWith(stack, net.minecraft.component.EnchantmentEffectComponentTypes.PREVENT_ARMOR_CHANGE);
 
-    private static BeatMinecraftConfig config;
+    private static final BeatMinecraftConfig config = BeatMinecraftConfig.get();
     private static GoToStrongholdPortalTask locateStrongholdTask;
     private static boolean openingEndPortal = false;
-
-    static {
-        ConfigHelper.loadConfig("configs/beat_minecraft.json", BeatMinecraftConfig::new, BeatMinecraftConfig.class, newConfig -> config = newConfig);
-    }
 
     private final UselessItems uselessItems;
     private final HashMap<Item, Integer> cachedEndItemDrops = new HashMap<>();
@@ -149,8 +145,8 @@ public class BeatMinecraftTask extends Task {
     public BeatMinecraftTask(AltoClef mod) {
         this.mod = mod;
 
-        locateStrongholdTask = new GoToStrongholdPortalTask(config.targetEyes);
-        buildMaterialsTask = new GetBuildingMaterialsTask(config.buildMaterialCount);
+        locateStrongholdTask = new GoToStrongholdPortalTask(config.targetEyes.get());
+        buildMaterialsTask = new GetBuildingMaterialsTask(config.buildMaterialCount.get());
         uselessItems = new UselessItems(config);
 
         SetGammaCommand.changeGamma(20d);
@@ -233,15 +229,10 @@ public class BeatMinecraftTask extends Task {
 
     /**
      * Returns the BeatMinecraftConfig instance.
-     * If it is not already initialized, it initializes and returns a new instance.
      *
      * @return the BeatMinecraftConfig instance
      */
     public static BeatMinecraftConfig getConfig() {
-        if (config == null) {
-            Debug.logInternal("Initializing BeatMinecraftConfig");
-            config = new BeatMinecraftConfig();
-        }
         return config;
     }
 
@@ -612,12 +603,12 @@ public class BeatMinecraftTask extends Task {
         food.addAll(List.of(Items.WHEAT, Items.BREAD));
 
         gatherResources.add(new ResourcePriorityTask(
-                new CollectFoodPriorityCalculator(mod, config.foodUnits),
+                new CollectFoodPriorityCalculator(mod, config.foodUnits.get()),
                 a -> StorageHelper.miningRequirementMet(MiningRequirement.STONE)
                         && mod.getItemStorage().hasItem(Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD)
-                        && CollectFoodTask.calculateFoodPotential(mod) < config.foodUnits,
+                        && CollectFoodTask.calculateFoodPotential(mod) < config.foodUnits.get(),
 
-                new CollectFoodTask(config.foodUnits), ItemTarget.of(food.toArray(new Item[]{}))
+                new CollectFoodTask(config.foodUnits.get()), ItemTarget.of(food.toArray(new Item[]{}))
         ));
 
         gatherResources.add(new ActionPriorityTask(mod12 -> {
@@ -754,7 +745,7 @@ public class BeatMinecraftTask extends Task {
 
         // Check if the material count is below the minimum required count
         // or if the build materials task should be forced.
-        if (materialCount < config.minBuildMaterialCount || shouldForce) {
+        if (materialCount < config.minBuildMaterialCount.get() || shouldForce) {
             Debug.logInternal("Building materials needed: " + materialCount);
             Debug.logInternal("Force build materials: " + shouldForce);
             return true;
@@ -833,7 +824,7 @@ public class BeatMinecraftTask extends Task {
         }
 
 
-        if ((!hasEnoughGoldIngots && !isGoldenHelmetEquipped && !hasGoldenHelmet) || config.barterPearlsInsteadOfEndermanHunt) {
+        if ((!hasEnoughGoldIngots && !isGoldenHelmetEquipped && !hasGoldenHelmet) || config.barterPearlsInsteadOfEndermanHunt.get()) {
             lootable.add(Items.GOLD_INGOT);
         }
 
@@ -1526,16 +1517,16 @@ public class BeatMinecraftTask extends Task {
 
         // Portable crafting table.
         // If we're NOT using our crafting table right now and there's one nearby, grab it.
-        if (!endPortalOpened && WorldHelper.getCurrentDimension() != Dimension.END && config.rePickupCraftingTable && !itemStorage.hasItem(Items.CRAFTING_TABLE) && !thisOrChildSatisfies(isCraftingTableTask) && (mod.getBlockScanner().anyFound(blockPos -> WorldHelper.canBreak(blockPos) && WorldHelper.canReach(blockPos), Blocks.CRAFTING_TABLE) || mod.getEntityTracker().itemDropped(Items.CRAFTING_TABLE)) && pickupCrafting) {
+        if (!endPortalOpened && WorldHelper.getCurrentDimension() != Dimension.END && config.rePickupCraftingTable.get() && !itemStorage.hasItem(Items.CRAFTING_TABLE) && !thisOrChildSatisfies(isCraftingTableTask) && (mod.getBlockScanner().anyFound(blockPos -> WorldHelper.canBreak(blockPos) && WorldHelper.canReach(blockPos), Blocks.CRAFTING_TABLE) || mod.getEntityTracker().itemDropped(Items.CRAFTING_TABLE)) && pickupCrafting) {
             setDebugState("Picking up the crafting table while we are at it.");
             return new MineAndCollectTask(Items.CRAFTING_TABLE, 1, new Block[]{Blocks.CRAFTING_TABLE}, MiningRequirement.HAND);
         }
-        if (config.rePickupSmoker && !endPortalOpened && WorldHelper.getCurrentDimension() != Dimension.END && !itemStorage.hasItem(Items.SMOKER) && (mod.getBlockScanner().anyFound(blockPos -> WorldHelper.canBreak(blockPos) && WorldHelper.canReach(blockPos), Blocks.SMOKER) || mod.getEntityTracker().itemDropped(Items.SMOKER)) && pickupSmoker) {
+        if (config.rePickupSmoker.get() && !endPortalOpened && WorldHelper.getCurrentDimension() != Dimension.END && !itemStorage.hasItem(Items.SMOKER) && (mod.getBlockScanner().anyFound(blockPos -> WorldHelper.canBreak(blockPos) && WorldHelper.canReach(blockPos), Blocks.SMOKER) || mod.getEntityTracker().itemDropped(Items.SMOKER)) && pickupSmoker) {
             setDebugState("Picking up the smoker while we are at it.");
             rePickupTask = new MineAndCollectTask(Items.SMOKER, 1, new Block[]{Blocks.SMOKER}, MiningRequirement.WOOD);
             return rePickupTask;
         }
-        if (config.rePickupFurnace && !endPortalOpened && WorldHelper.getCurrentDimension() != Dimension.END && !itemStorage.hasItem(Items.FURNACE) && (mod.getBlockScanner().anyFound(blockPos -> WorldHelper.canBreak(blockPos) && WorldHelper.canReach(blockPos), Blocks.FURNACE) || mod.getEntityTracker().itemDropped(Items.FURNACE)) && !goToNetherTask.isActive() && !ranStrongholdLocator && pickupFurnace) {
+        if (config.rePickupFurnace.get() && !endPortalOpened && WorldHelper.getCurrentDimension() != Dimension.END && !itemStorage.hasItem(Items.FURNACE) && (mod.getBlockScanner().anyFound(blockPos -> WorldHelper.canBreak(blockPos) && WorldHelper.canReach(blockPos), Blocks.FURNACE) || mod.getEntityTracker().itemDropped(Items.FURNACE)) && !goToNetherTask.isActive() && !ranStrongholdLocator && pickupFurnace) {
             setDebugState("Picking up the furnace while we are at it.");
             rePickupTask = new MineAndCollectTask(Items.FURNACE, 1, new Block[]{Blocks.FURNACE}, MiningRequirement.WOOD);
             return rePickupTask;
@@ -1545,7 +1536,7 @@ public class BeatMinecraftTask extends Task {
         pickupCrafting = false;
 
         // Sleep through night.
-        if (config.sleepThroughNight && !endPortalOpened && WorldHelper.getCurrentDimension() == Dimension.OVERWORLD) {
+        if (config.sleepThroughNight.get() && !endPortalOpened && WorldHelper.getCurrentDimension() == Dimension.OVERWORLD) {
             if (WorldHelper.canSleep()) {
                 if (timer2.elapsed()) {
                     timer2.reset();
@@ -1575,8 +1566,8 @@ public class BeatMinecraftTask extends Task {
         boolean needsEyes = !endPortalOpened(mod, endPortalCenterLocation) && WorldHelper.getCurrentDimension() != Dimension.END;
 
         int filledPortalFrames = getFilledPortalFrames(mod, endPortalCenterLocation);
-        int eyesNeededMin = needsEyes ? config.minimumEyes - filledPortalFrames : 0;
-        int eyesNeeded = needsEyes ? config.targetEyes - filledPortalFrames : 0;
+        int eyesNeededMin = needsEyes ? config.minimumEyes.get() - filledPortalFrames : 0;
+        int eyesNeeded = needsEyes ? config.targetEyes.get() - filledPortalFrames : 0;
 
         int eyes = itemStorage.getItemCount(Items.ENDER_EYE);
         if (eyes < eyesNeededMin || (!ranStrongholdLocator && collectingEyes && eyes < eyesNeeded)) {
@@ -1679,7 +1670,7 @@ public class BeatMinecraftTask extends Task {
                     setDebugState("Collecting building materials.");
                     return buildMaterialsTask;
                 }
-                if (config.placeSpawnNearEndPortal && itemStorage.hasItem(ItemHelper.BED) && (!spawnSetNearPortal(mod, endPortalCenterLocation))) {
+                if (config.placeSpawnNearEndPortal.get() && itemStorage.hasItem(ItemHelper.BED) && (!spawnSetNearPortal(mod, endPortalCenterLocation))) {
                     setDebugState("Setting spawn near end portal");
                     return setSpawnNearPortalTask(mod);
 
@@ -1826,7 +1817,7 @@ public class BeatMinecraftTask extends Task {
         }
 
         // Check if we should barter Pearls instead of hunting Endermen.
-        if (config.barterPearlsInsteadOfEndermanHunt) {
+        if (config.barterPearlsInsteadOfEndermanHunt.get()) {
             // Check if Golden Helmet is not equipped, and equip it.
             if (!StorageHelper.isArmorEquipped(Items.GOLDEN_HELMET)) {
                 return new EquipArmorTask(Items.GOLDEN_HELMET);
@@ -1859,13 +1850,13 @@ public class BeatMinecraftTask extends Task {
      */
     private int getTargetBeds(AltoClef mod) {
         // Check if spawn needs to be set near the end portal
-        boolean needsToSetSpawn = config.placeSpawnNearEndPortal && (!spawnSetNearPortal(mod, endPortalCenterLocation) && !isTaskRunning(mod, setBedSpawnTask));
+        boolean needsToSetSpawn = config.placeSpawnNearEndPortal.get() && (!spawnSetNearPortal(mod, endPortalCenterLocation) && !isTaskRunning(mod, setBedSpawnTask));
 
         // Calculate the number of beds in the end
         int bedsInEnd = Arrays.stream(ItemHelper.BED).mapToInt(bed -> cachedEndItemDrops.getOrDefault(bed, 0)).sum();
 
         // Calculate the target number of beds
-        int targetBeds = config.requiredBeds + (needsToSetSpawn ? 1 : 0) - bedsInEnd;
+        int targetBeds = config.requiredBeds.get() + (needsToSetSpawn ? 1 : 0) - bedsInEnd;
 
         // Output debug information
         Debug.logInternal("needsToSetSpawn: " + needsToSetSpawn);
