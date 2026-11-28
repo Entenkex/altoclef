@@ -106,14 +106,26 @@ Scope of this step: crafting + smelting (furnace, smoker, blast furnace, campfir
 - [ ] 2.4c Replace the `CraftWithMatching*` tasks with one "choose a variant" task (pick the variant output via
       `RecipeRegistry.choose` across all variants; collect-any-then-craft-majority strategy rebuilt on top);
       fits the shopping list planner (step 4).
-- [ ] 2.5 Remove `CraftingRecipe`, `RecipeTarget`, the unused grid arguments of the `shapedRecipe*`/`smelt`
-      helpers and the last-resort grids (`createRecipe` in the `Collect*` variant tasks).
+- [x] 2.5a Catalogue cleanup: all recipe entries are one line, `crafted(name, item)` / `smelted(name, item)`;
+      the old `shapedRecipe*`/`smelt` helpers with hand-written grids are gone (`tools`/`armor` too).
+- [ ] 2.5b Remove the backwards adapters between the new recipe model and the old crafting code. They only
+      exist so the old tasks keep working; they go away when the crafting tasks are rebuilt in step 3
+      (and the variant tasks in 2.4c / step 4):
+  - `util/LegacyRecipeAdapter` (new `Recipe` → old `CraftingRecipe` grid of `ItemTarget`s)
+  - the legacy parts of `util/RegistryCrafting` (building `CraftingRecipe`/`RecipeTarget`, `MatchingRecipe`)
+  - `util/GameRecipeLookup` (old grid → game recipe id via `RecipeComparison`; tasks should carry the recipe id)
+  - `trackers/CraftingRecipeTracker` (old lookup interface, used by `CraftingHelper`, `BeatMinecraftTask`)
+  - `util/CraftingRecipe`, `util/RecipeTarget` and their ~40 users (`Craft*Task`, squasher, `Collect*Task`)
+  - the last-resort grids (`createRecipe` + masks) in the `Collect*` variant tasks and `CollectBedTask`,
+    and the `CraftWithMatching*` tasks themselves (2.4c)
 - [ ] Later: smithing, stonecutter; reading data packs (1.21.2+ clients get no recipes from the server).
 - [ ] Later: prefer recipe variants by their result's usefulness, not only by what is in the inventory
       (e.g. suspicious stew: the flower decides the effect — regeneration/saturation instead of poison or
       blindness; dyes/colours, wood types). Needs a value per variant, ties in with item values (step 7).
 
 ### 3. Task architecture: layers, strategies, priorities (together with 5)
+Includes removing the recipe backwards adapters (2.5b): crafting/smelting tasks work directly on
+`recipes.Recipe` (grid via `RecipeShape.Shaped.toGrid`, recipe id for the recipe book).
 
 #### 3a. Task layers
 Today: ~180 task classes sorted by topic (`slot/`, `movement/`, `container/`,
