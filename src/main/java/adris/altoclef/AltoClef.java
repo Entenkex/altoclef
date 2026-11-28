@@ -165,6 +165,7 @@ public class AltoClef implements ModInitializer {
         adris.altoclef.butler.ButlerConfig.getInstance();
         adris.altoclef.tasks.speedrun.BeatMinecraftConfig.get();
         adris.altoclef.tasks.movement.MLGBucketTask.registerSettings();
+        adris.altoclef.diagnostics.DiagnosticsConfig.get();
 
         // Load settings
         adris.altoclef.Settings.load(newSettings -> {
@@ -184,6 +185,9 @@ public class AltoClef implements ModInitializer {
             getExtraBaritoneSettings().avoidBlockPlace(blockPos -> settings.isPositionExplicitlyProtected(blockPos));
             getExtraBaritoneSettings().getForceSaveToolPredicates().add((state, item) -> StorageHelper.shouldSaveStack(this, state.getBlock(), item));
         });
+
+        // Decision log / flight recorder (docs/task-architecture.md 2.6)
+        adris.altoclef.diagnostics.Diagnostics.init();
 
         // Receive + cancel chat
         EventBus.subscribe(SendChatEvent.class, evt -> {
@@ -239,6 +243,7 @@ public class AltoClef implements ModInitializer {
         trackerManager.tick();
         blockScanner.tick();
         taskRunner.tick();
+        adris.altoclef.diagnostics.Diagnostics.clientTick();
 
         messageSender.tick();
 

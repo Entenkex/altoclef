@@ -22,6 +22,7 @@ public abstract class Task {
         parentChain.addTaskToChain(this);
         if (first) {
             Debug.logInternal("Task START: " + this);
+            TaskSystemListener.get().taskStarted(this, parentChain);
             active = true;
             onStart();
             first = false;
@@ -77,6 +78,7 @@ public abstract class Task {
     public void stop(Task interruptTask) {
         if (!active) return;
         Debug.logInternal("Task STOP: " + this + ", interrupted by " + interruptTask);
+        TaskSystemListener.get().taskStopped(this, interruptTask);
         if (!first) {
             onStop(interruptTask);
         }
@@ -99,6 +101,7 @@ public abstract class Task {
      */
     public void interrupt(Task interruptTask) {
         if (!active) return;
+        TaskSystemListener.get().taskInterrupted(this, interruptTask);
         if (!first) {
             onStop(interruptTask);
         }

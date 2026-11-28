@@ -65,6 +65,7 @@ public class CommandExecutor {
 
     public void execute(String line, Runnable onFinish, Consumer<CommandException> getException) {
         if (!isClientCommand(line)) return;
+        adris.altoclef.diagnostics.Diagnostics.command(line);
         line = line.substring(getCommandPrefix().length());
         // Run commands separated by ;
         String[] parts = line.split(";");

@@ -18,6 +18,18 @@ Commands are prefixed with `@`. Here's a list along with their functions:
 | `status`               | Prints the status of the currently executing command. Mostly useful when running through `/msg`.                       |               |
 | `stop`                 | Forcefully stops the currently running command. The shortcut `CTRL+K` also achieves this.                              |               |
 | `test {testname}`      | Runs a "test" command. These vary, and will be described below.                                                        |               |
+| `summary`              | Short summary of the current run (time per task chain, switches, deaths); also written to the decision log.            |               |
+| `dump`                 | Writes the last seconds of bot decisions (flight recorder) to `altoclef/logs/`, for bug reports.                       |               |
+
+### Decision log (finding out why the bot did something)
+
+Every session (world join → leave) writes `altoclef/logs/<date_time>.jsonl`: one JSON line per decision —
+switches between task chains with the priorities of all chains, task start/stop, deaths, dimension changes,
+commands. On death, when the bot keeps flipping between two chains, or when the task path repeats itself (planning
+loop), the last 30 seconds (one snapshot per tick)
+are written as `<session>-t<tick>-<trigger>.json`; `@dump` does the same by hand. The last 10 sessions are kept.
+Settings: `debug.*` (e.g. `@set debug.flightRecorderSeconds 60`). Readable timeline:
+`scripts/decision_timeline.py <file>` (see `--help`). Design: [docs/task-architecture.md](docs/task-architecture.md) 2.6.
 
 
 ### Notable test commands

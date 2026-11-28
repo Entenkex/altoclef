@@ -4,6 +4,7 @@ import adris.altoclef.AltoClef;
 import adris.altoclef.Debug;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class TaskRunner {
 
@@ -27,16 +28,23 @@ public class TaskRunner {
         }
 
         // Get highest priority chain and run
+        TaskSystemListener listener = TaskSystemListener.get();
+        List<TaskSystemListener.ChainPriority> evaluated = listener == TaskSystemListener.NONE ? null : new ArrayList<>(chains.size());
         TaskChain maxChain = null;
         float maxPriority = Float.NEGATIVE_INFINITY;
         for (TaskChain chain : chains) {
-            if (!chain.isActive()) continue;
+            if (!chain.isActive()) {
+                if (evaluated != null) evaluated.add(new TaskSystemListener.ChainPriority(chain.getName(), false, Float.NEGATIVE_INFINITY));
+                continue;
+            }
             float priority = chain.getPriority();
+            if (evaluated != null) evaluated.add(new TaskSystemListener.ChainPriority(chain.getName(), true, priority));
             if (priority > maxPriority) {
                 maxPriority = priority;
                 maxChain = chain;
             }
         }
+        TaskChain previous = cachedCurrentTaskChain;
         if (cachedCurrentTaskChain != null && maxChain != cachedCurrentTaskChain) {
             cachedCurrentTaskChain.onInterrupt(maxChain);
         }
@@ -46,6 +54,9 @@ public class TaskRunner {
             maxChain.tick();
         } else {
             statusReport = " (no chain running) ";
+        }
+        if (evaluated != null) {
+            listener.runnerTicked(evaluated, previous, maxChain);
         }
     }
 

@@ -146,7 +146,9 @@ public final class RegistryCrafting {
             }
             Set<String> obtainable = new HashSet<>();
             for (Item item : TaskCatalogue.directlyObtainableItems()) obtainable.add(LegacyRecipeAdapter.id(item));
-            resolver = new IngredientResolver(catalogue, obtainable);
+            Set<String> otherDimension = new HashSet<>();
+            for (Item item : TaskCatalogue.itemsOnlyOutsideOverworld()) otherDimension.add(LegacyRecipeAdapter.id(item));
+            resolver = new IngredientResolver(catalogue, obtainable, otherDimension);
         }
         return resolver;
     }

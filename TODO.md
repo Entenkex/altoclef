@@ -184,6 +184,13 @@ hard-coded numbers 100–25000). Thrashing is patched with `changedTaskTimer`,
       (only switch when the new task is clearly higher).
 - [ ] Port `BeatMinecraftTask`'s gather list onto the new model and shrink the class.
 
+#### 3-0. Decision log (step 0 of `docs/task-architecture.md`, branch `feature/decision-log`)
+- [x] Decision log `altoclef/logs/<session>.jsonl`, flight recorder dumps (death, thrashing, `@dump`),
+      run summary (`@summary`, chat on task finish / death), thrash detector, task loop detector, `debug.*` settings,
+      `scripts/decision_timeline.py`.
+- [ ] Baseline speedruns on the old runner (after the recipe cleanup, step R).
+- [ ] Exception in a task as dump trigger (comes with the failure signal, step 1).
+
 #### 3d. Exploration (own branch, right after the logging step)
 Today `TimeoutWanderTask` (38 uses) runs Baritone explore around a fixed origin: swims across oceans, runs back and
 forth, never covers distance, the infinite variant never ends.
