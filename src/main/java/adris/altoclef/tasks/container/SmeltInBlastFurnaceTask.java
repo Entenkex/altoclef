@@ -36,7 +36,7 @@ import java.util.stream.Stream;
 /**
  * Smelt in a blast furnace, placing a blast furnace and collecting fuel as needed.
  */
-public class SmeltInBlastFurnaceTask extends ResourceTask {
+public class SmeltInBlastFurnaceTask extends ResourceTask implements ExtraSmelting.Holder {
 
     private final SmeltTarget[] _targets;
 
@@ -98,8 +98,12 @@ public class SmeltInBlastFurnaceTask extends ResourceTask {
             }
             Optional<Slot> garbage = StorageHelper.getGarbageSlot(mod);
             // Try throwing away cursor slot if it's garbage
-            garbage.ifPresent(slot -> mod.getSlotHandler().clickSlot(slot, 0, SlotActionType.PICKUP));
-            mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+            // Swap the cursor stack with a garbage slot, then throw the garbage. Without a garbage slot keep
+            // the cursor stack: before, the click below threw it away whatever it was (lost swords, 2026-11-28).
+            if (garbage.isPresent()) {
+                mod.getSlotHandler().clickSlot(garbage.get(), 0, SlotActionType.PICKUP);
+                mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+            }
         } else {
             StorageHelper.closeScreen();
         }
@@ -107,7 +111,13 @@ public class SmeltInBlastFurnaceTask extends ResourceTask {
 
     @Override
     public boolean isFinished() {
-        return super.isFinished() || _doTask.isFinished();
+        // Target met: still keep going while the leftover heat cooks extras (raw meat, ores) from the inventory.
+        return (super.isFinished() || _doTask.isFinished()) && !isSmeltingExtras();
+    }
+
+    @Override
+    public boolean isSmeltingExtras() {
+        return _doTask.wantsExtras();
     }
 
     @Override
@@ -132,6 +142,7 @@ public class SmeltInBlastFurnaceTask extends ResourceTask {
 
         private final SmeltTarget _target;
         private final BlastFurnaceCache _blastFurnaceCache = new BlastFurnaceCache();
+        private final ExtraSmelting extras = new ExtraSmelting(ExtraSmelting.BLAST_FURNACE_ITEMS, ExtraSmelting.FAST_COOK_TICKS);
         private final ItemTarget _allMaterials;
         private boolean _ignoreMaterials;
 
@@ -151,6 +162,11 @@ public class SmeltInBlastFurnaceTask extends ResourceTask {
                 return task._target.equals(_target) && task._ignoreMaterials == _ignoreMaterials;
             }
             return false;
+        }
+
+        boolean wantsExtras() {
+            return extras.wantsToContinue(AltoClef.getInstance(), StorageHelper.getItemStackInSlot(BlastFurnaceSlot.INPUT_SLOT_MATERIALS),
+                    StorageHelper.getBlastFurnaceFuel(), _allMaterials);
         }
 
         @Override
@@ -287,6 +303,17 @@ public class SmeltInBlastFurnaceTask extends ResourceTask {
             int neededMaterialsInSlot = materialTarget.getTargetCount()
                     - mod.getItemStorage().getItemCountInventoryOnly(_target.getItem().getMatches())
                     - (_target.getItem().matches(output.getItem()) ? output.getCount() : 0);
+            // Target done (nothing of it left to put in): use the remaining heat for extras from the inventory.
+            boolean targetDone = neededMaterialsInSlot <= 0 && !_allMaterials.matches(material.getItem());
+            Task extraTask = extras.tick(mod, targetDone, material, BlastFurnaceSlot.INPUT_SLOT_MATERIALS,
+                    StorageHelper.getBlastFurnaceFuel(), StorageHelper.getBlastFurnaceCookPercent(), _allMaterials);
+            if (extras.isActive()) {
+                setDebugState("Smelting extras with leftover heat");
+                return extraTask;
+            }
+            if (targetDone) {
+                return null;
+            }
             // We don't have the right material or we need more
             if (!_allMaterials.matches(material.getItem()) || neededMaterialsInSlot > material.getCount()) {
                 int materialsAlreadyIn = (materialTarget.matches(material.getItem()) ? material.getCount() : 0);

@@ -45,6 +45,10 @@ def describe(event, verbose):
     elif t == "summary":
         per_chain = ", ".join(f"{k} {v:g}s" for k, v in (event.get("secondsPerChain") or {}).items())
         extra = f" {event.get('seconds', 0):g}s, switches {event.get('switches')}, deaths {len(event.get('deaths') or [])}"
+        if "distanceWalked" in event:
+            unstuck = (event.get("chainEntries") or {}).get("Unstuck Chain", 0)
+            extra += (f", moved {event['distanceWalked']:g} (net {event.get('netDistance', 0):g}),"
+                      f" water {event.get('waterSeconds', 0):g}s, unstuck {unstuck}x")
         if per_chain:
             extra += f" | {per_chain}"
     elif verbose and t not in TASK_TYPES:

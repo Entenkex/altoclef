@@ -186,6 +186,7 @@ hard-coded numbers 100–25000). Thrashing is patched with `changedTaskTimer`,
 - [x] Decision log `altoclef/logs/<session>.jsonl`, flight recorder dumps (death, thrashing, `@dump`),
       run summary (`@summary`, chat on task finish / death), thrash detector, task loop detector, `debug.*` settings,
       `scripts/decision_timeline.py`.
+- [x] Baseline metrics in the run summary: distance walked / net / max, time in water, chain entries (unstuck count).
 - [ ] Baseline speedruns on the old runner (after the recipe cleanup, step R).
 - [ ] Exception in a task as dump trigger (comes with the failure signal, step 1).
 
@@ -273,6 +274,16 @@ otherwise the smallest throwaway block stack while keeping
 - [ ] Idea: use storage to keep more – shulker boxes, barrels, ender chest
       (store low-priority valuables instead of dropping them).
 - [ ] Replace `throwawayItems` / `UselessItems` / `getGarbageSlot` with this system.
+- [ ] Move the speedrun's own throw-away rules (`BeatMinecraftTask.throwAwayItems`: worse pickaxes/swords, gravel,
+      sand, torches, `UselessItems`) into the general inventory management. Today they throw items while standing
+      still, Minecraft picks them up again after 2 s and they are thrown again (wooden pickaxe 7× in a row in
+      baseline run 3). Only drop when the inventory is (nearly) full, and not where the bot keeps standing.
+- [ ] Processing as part of inventory upkeep: raw meat, raw iron/gold etc. count as "unfinished" items. Plan them
+      in when a furnace/smoker runs anyway (today: `ExtraSmelting` only uses the leftover heat once a smelt target
+      is done, no extra fuel), and weigh "cook now" against fuel cost and waiting time. Background: baseline run
+      2026-11-28 carried 17 raw meat all run while hunting sheep for food.
+- [ ] Make `ExtraSmelting` a setting (on/off, maybe max wait time per furnace and which item groups: food, ores),
+      so speedruns can switch it off and save the waiting time at the furnace.
 - [ ] Build as L2 tasks (compress, drop, store) on top of the slot tasks (see 3a).
 
 ### 8. World memory (per world / server)
@@ -297,6 +308,13 @@ Today: knowledge about a world lives in task fields and is lost when the game is
 - Allow any bed color when crafting beds from wool. (→ roadmap 2, "must match" groups)
 - Add cherry blossom wood as a valid wood type or something? It doesn't seem to work properly atm.
 - Maybe add some sort of system that finds and uses seed of the current world?
+- Ideas from the baseline speedruns (2026-11-28), to consider at the very end:
+  - Task delay timers: don't stand next to a furnace while it smelts; do other work and come back when done
+    (ties in with the shopping list, step 4).
+  - With enough armor, ignore annoying mobs (zombies, skeletons) instead of fighting or fleeing; only deal with
+    them when they actually threaten (ties in with MobDefense as a SURVIVAL source, step 4 of the task architecture).
+  - ~~Item drops not visible in the decision log~~ → done: inventory snapshot every minute, `item_lost` / `item_drop`
+    for tools, weapons, armor (branch `feature/baseline-metrics`).
 
 
 ## Common death causes

@@ -73,8 +73,25 @@ public class SlotHandler {
         if (player == null) {
             return;
         }
+        // Last line of defense: dozens of cursor clean-ups throw the cursor away as a last resort. Never let that
+        // take a tool, weapon or armor piece unless the inventory holds one at least as good (worse-tool clean-up).
+        if (windowSlot == -999 && type == SlotActionType.PICKUP) {
+            ItemStack cursor = StorageHelper.getItemStackInCursorSlot();
+            if (cursor.isDamageable() && !hasAtLeastAsGoodInInventory(player, cursor)) {
+                adris.altoclef.diagnostics.Diagnostics.itemDropBlocked(cursor.copy(), dropCaller());
+                return;
+            }
+        }
         registerSlotAction();
         int syncId = player.currentScreenHandler.syncId;
+        // Decision log: what the bot throws out of the inventory (click outside the window, or a throw).
+        if (windowSlot == -999 && type == SlotActionType.PICKUP) {
+            adris.altoclef.diagnostics.Diagnostics.itemDropped(StorageHelper.getItemStackInCursorSlot().copy());
+        } else if (type == SlotActionType.THROW && windowSlot >= 0 && windowSlot < player.currentScreenHandler.slots.size()) {
+            net.minecraft.item.ItemStack thrown = player.currentScreenHandler.getSlot(windowSlot).getStack().copy();
+            if (mouseButton == 0 && !thrown.isEmpty()) thrown.setCount(1); // without ctrl: one item
+            adris.altoclef.diagnostics.Diagnostics.itemDropped(thrown);
+        }
 
         try {
             mod.getController().clickSlot(syncId, windowSlot, mouseButton, type, player);
@@ -82,6 +99,36 @@ public class SlotHandler {
             Debug.logWarning("Slot Click Error (ignored)");
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Whether the player inventory (cursor excluded) holds an item that makes {@code stack} expendable: the same item,
+     * or a tool of the same kind (sword, pickaxe, ...) with at least the same material level.
+     */
+    private static boolean hasAtLeastAsGoodInInventory(ClientPlayerEntity player, ItemStack stack) {
+        Item item = stack.getItem();
+        List<ItemStack> others = new java.util.ArrayList<>(player.getInventory().main);
+        others.addAll(player.getInventory().armor);
+        others.addAll(player.getInventory().offHand);
+        for (ItemStack other : others) {
+            if (other.isEmpty()) continue;
+            if (other.getItem() == item) return true;
+            if (item instanceof ToolItem tool && other.getItem() instanceof ToolItem otherTool
+                    && otherTool.getClass() == tool.getClass()
+                    && adris.altoclef.multiversion.ToolMaterialVer.getMiningLevel(otherTool) >= adris.altoclef.multiversion.ToolMaterialVer.getMiningLevel(tool)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The first class outside the slot handling that asked for this click, for the decision log. */
+    private static String dropCaller() {
+        return StackWalker.getInstance().walk(frames -> frames
+                .map(f -> f.getClassName().substring(f.getClassName().lastIndexOf('.') + 1) + ":" + f.getLineNumber())
+                .filter(name -> !name.startsWith("SlotHandler"))
+                .findFirst()
+                .orElse("?"));
     }
 
     public void forceEquipItemToOffhand(Item toEquip) {
@@ -124,7 +171,9 @@ public class SlotHandler {
     }
 
     public boolean forceDeequipHitTool() {
-        return forceDeequip(stack -> stack.getItem() instanceof ToolItem);
+        // A sword is the weapon we want in hand: only mining tools (pickaxe, shovel, ...) wear out from hitting mobs.
+        // Taking the sword out here fought KillAura.equipWeapon every tick (the sword flickered in and out of the hotbar).
+        return forceDeequip(stack -> stack.getItem() instanceof ToolItem && !(stack.getItem() instanceof SwordItem));
     }
 
     public void forceDeequipRightClickableItem() {
@@ -166,7 +215,12 @@ public class SlotHandler {
         ItemStack cursor = StorageHelper.getItemStackInSlot(CursorSlot.SLOT);
         if (isBad.test(cursor)) {
             // Throw away cursor slot OR move
-            Optional<Slot> fittableSlots = mod.getItemStorage().getSlotThatCanFitInPlayerInventory(equip, false);
+            // Find room for the item in the cursor (checking the equip stack here found a slot for "nothing"),
+            // but not the hand slot we just emptied: that would put the bad item straight back.
+            Slot equipSlot = PlayerSlot.getEquipSlot();
+            Optional<Slot> fittableSlots = mod.getItemStorage().getSlotsThatCanFitInPlayerInventory(cursor, false).stream()
+                    .filter(slot -> !slot.equals(equipSlot))
+                    .findFirst();
             if (fittableSlots.isEmpty()) {
                 // Try to swap items with the first non-bad slot.
                 for (Slot slot : Slot.getCurrentScreenSlots()) {

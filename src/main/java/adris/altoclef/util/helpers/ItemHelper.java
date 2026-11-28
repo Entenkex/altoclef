@@ -390,7 +390,19 @@ public class ItemHelper {
             return false;
         if (isStackProtected(mod, stack))
             return false;
-        return mod.getModSettings().isThrowaway(stack.getItem()) || mod.getModSettings().shouldThrowawayUnusedItems();
+        if (mod.getModSettings().isThrowaway(stack.getItem())) return true;
+        // "Unused items" never includes tools, weapons and armor (anything with durability): the cursor clean-up of
+        // many tasks threw away a freshly crafted sword this way when the inventory was full (2026-11-28).
+        // Worse tools are still thrown out by StorageHelper.getGarbageSlot via canThrowAwayWorseTool.
+        return mod.getModSettings().shouldThrowawayUnusedItems() && !stack.isDamageable();
+    }
+
+    /**
+     * For replacing a worse tool by a better one of the same kind (not protected, ignores the durability rule of
+     * {@link #canThrowAwayStack}).
+     */
+    public static boolean canThrowAwayWorseTool(AltoClef mod, ItemStack stack) {
+        return !stack.isEmpty() && !isStackProtected(mod, stack);
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
