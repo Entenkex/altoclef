@@ -109,6 +109,12 @@ public class BeatMinecraftTask extends Task {
     private final AltoClef mod;
     private PriorityTask lastGather = null;
     private Task lastTask = null;
+    /**
+     * Food hysteresis: collecting starts below {@link #FOOD_REFILL_FRACTION} of the target and goes on until the target
+     * is reached. Without it every bite (220 -> 212) sent the bot hunting again with a full inventory.
+     */
+    private static final double FOOD_REFILL_FRACTION = 0.75;
+    private boolean collectingFood = false;
     private boolean pickupFurnace = false;
     private boolean pickupSmoker = false;
     private boolean pickupCrafting = false;
@@ -593,6 +599,17 @@ public class BeatMinecraftTask extends Task {
 
     }
 
+    private boolean needsFoodCollecting(AltoClef mod) {
+        double potential = CollectFoodTask.calculateFoodPotential(mod);
+        int target = config.foodUnits.get();
+        if (potential >= target) {
+            collectingFood = false;
+        } else if (potential < target * FOOD_REFILL_FRACTION) {
+            collectingFood = true;
+        }
+        return collectingFood;
+    }
+
     private void addCollectFoodTask(AltoClef mod) {
         List<Item> food = new LinkedList<>(ItemHelper.cookableFoodMap.values());
         food.addAll(ItemHelper.cookableFoodMap.keySet());
@@ -602,7 +619,7 @@ public class BeatMinecraftTask extends Task {
                 new CollectFoodPriorityCalculator(mod, config.foodUnits.get()),
                 a -> StorageHelper.miningRequirementMet(MiningRequirement.STONE)
                         && mod.getItemStorage().hasItem(Items.STONE_SWORD, Items.IRON_SWORD, Items.DIAMOND_SWORD)
-                        && CollectFoodTask.calculateFoodPotential(mod) < config.foodUnits.get(),
+                        && needsFoodCollecting(mod),
 
                 new CollectFoodTask(config.foodUnits.get()), ItemTarget.of(food.toArray(new Item[]{}))
         ));
@@ -2084,6 +2101,10 @@ public class BeatMinecraftTask extends Task {
                         return lastTask;
                     }
                     if (isTaskRunning(mod, lastTask) && lastGather != null && lastGather.shouldForce()) {
+                        return lastTask;
+                    }
+                    // A smelt task whose target is met may still cook extras with the leftover heat: let it finish.
+                    if (isTaskRunning(mod, lastTask) && lastTask instanceof ExtraSmelting.Holder smelting && smelting.isSmeltingExtras()) {
                         return lastTask;
                     }
 

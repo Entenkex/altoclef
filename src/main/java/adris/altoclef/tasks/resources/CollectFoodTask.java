@@ -14,6 +14,7 @@ import adris.altoclef.tasks.movement.PickupDroppedItemTask;
 import adris.altoclef.tasks.movement.TimeoutWanderTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
+import adris.altoclef.util.SmeltTarget;
 import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.helpers.WorldHelper;
@@ -66,7 +67,7 @@ public class CollectFoodTask extends Task {
 
     private final double unitsNeeded;
     private final TimerGame checkNewOptionsTimer = new TimerGame(10);
-    private final SmeltInSmokerTask smeltTask = null;
+    private SmeltInSmokerTask smeltTask = null;
     private Task currentResourceTask = null;
 
     public CollectFoodTask(double unitsNeeded) {
@@ -193,16 +194,18 @@ public class CollectFoodTask extends Task {
             }
             // Convert raw foods -> cooked foods
 
-            /*for (CookableFoodTarget cookable : COOKABLE_FOODS) {
+            // We have enough food once it is cooked: cook it (before, this was commented out and the task wandered
+            // around "Searching..." with an inventory full of raw meat).
+            for (CookableFoodTarget cookable : COOKABLE_FOODS) {
                 int rawCount = mod.getItemStorage().getItemCount(cookable.getRaw());
                 if (rawCount > 0) {
-                    //Debug.logMessage("STARTING COOK OF " + cookable.getRaw().getTranslationKey());
                     int toSmelt = rawCount + mod.getItemStorage().getItemCount(cookable.getCooked());
                     smeltTask = new SmeltInSmokerTask(new SmeltTarget(new ItemTarget(cookable.cookedFood, toSmelt), new ItemTarget(cookable.rawFood, rawCount)));
                     smeltTask.ignoreMaterials();
+                    setDebugState("Cooking " + cookable.rawFood);
                     return smeltTask;
                 }
-            }*/
+            }
         } else {
             // Pick up food items from ground
             for (Item item : ITEMS_TO_PICK_UP) {

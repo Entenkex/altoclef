@@ -278,6 +278,12 @@ otherwise the smallest throwaway block stack while keeping
       sand, torches, `UselessItems`) into the general inventory management. Today they throw items while standing
       still, Minecraft picks them up again after 2 s and they are thrown again (wooden pickaxe 7× in a row in
       baseline run 3). Only drop when the inventory is (nearly) full, and not where the bot keeps standing.
+- [ ] Processing as part of inventory upkeep: raw meat, raw iron/gold etc. count as "unfinished" items. Plan them
+      in when a furnace/smoker runs anyway (today: `ExtraSmelting` only uses the leftover heat once a smelt target
+      is done, no extra fuel), and weigh "cook now" against fuel cost and waiting time. Background: baseline run
+      2026-11-28 carried 17 raw meat all run while hunting sheep for food.
+- [ ] Make `ExtraSmelting` a setting (on/off, maybe max wait time per furnace and which item groups: food, ores),
+      so speedruns can switch it off and save the waiting time at the furnace.
 - [ ] Build as L2 tasks (compress, drop, store) on top of the slot tasks (see 3a).
 
 ### 8. World memory (per world / server)

@@ -36,7 +36,7 @@ import java.util.stream.Stream;
 /**
  * Smelt in a smoker, placing a smoker and collecting fuel as needed.
  */
-public class SmeltInSmokerTask extends ResourceTask {
+public class SmeltInSmokerTask extends ResourceTask implements ExtraSmelting.Holder {
 
     private final SmeltTarget target;
 
@@ -107,7 +107,13 @@ public class SmeltInSmokerTask extends ResourceTask {
 
     @Override
     public boolean isFinished() {
-        return super.isFinished() || doTask.isFinished();
+        // Target met: still keep going while the leftover heat cooks extras (raw meat, ores) from the inventory.
+        return (super.isFinished() || doTask.isFinished()) && !isSmeltingExtras();
+    }
+
+    @Override
+    public boolean isSmeltingExtras() {
+        return doTask.wantsExtras();
     }
 
     @Override
@@ -132,6 +138,7 @@ public class SmeltInSmokerTask extends ResourceTask {
 
         private final SmeltTarget _target;
         private final SmokerCache _smokerCache = new SmokerCache();
+        private final ExtraSmelting extras = new ExtraSmelting(ExtraSmelting.SMOKER_ITEMS, ExtraSmelting.FAST_COOK_TICKS);
         private final ItemTarget _allMaterials;
         private boolean _ignoreMaterials;
 
@@ -152,6 +159,11 @@ public class SmeltInSmokerTask extends ResourceTask {
                 return task._target.equals(_target) && task._ignoreMaterials == _ignoreMaterials;
             }
             return false;
+        }
+
+        boolean wantsExtras() {
+            return extras.wantsToContinue(AltoClef.getInstance(), StorageHelper.getItemStackInSlot(SmokerSlot.INPUT_SLOT_MATERIALS),
+                    StorageHelper.getSmokerFuel(), _allMaterials);
         }
 
         @Override
@@ -288,6 +300,17 @@ public class SmeltInSmokerTask extends ResourceTask {
             int neededMaterialsInSlot = materialTarget.getTargetCount()
                     - mod.getItemStorage().getItemCountInventoryOnly(_target.getItem().getMatches())
                     - (_target.getItem().matches(output.getItem()) ? output.getCount() : 0);
+            // Target done (nothing of it left to put in): use the remaining heat for extras from the inventory.
+            boolean targetDone = neededMaterialsInSlot <= 0 && !_allMaterials.matches(material.getItem());
+            Task extraTask = extras.tick(mod, targetDone, material, SmokerSlot.INPUT_SLOT_MATERIALS,
+                    StorageHelper.getSmokerFuel(), StorageHelper.getSmokerCookPercent(), _allMaterials);
+            if (extras.isActive()) {
+                setDebugState("Smelting extras with leftover heat");
+                return extraTask;
+            }
+            if (targetDone) {
+                return null;
+            }
             // We don't have the right material or we need more
             if (!_allMaterials.matches(material.getItem()) || neededMaterialsInSlot > material.getCount()) {
                 int materialsAlreadyIn = (materialTarget.matches(material.getItem()) ? material.getCount() : 0);
