@@ -185,8 +185,7 @@ public class MobDefenseChain extends SingleTaskChain {
         // Run away if a weird mob is close by.
         Optional<Entity> universallyDangerous = getUniversallyDangerousMob(mod);
         if (universallyDangerous.isPresent() && mod.getPlayer().getHealth() <= 10) {
-            runAwayTask = new RunAwayFromHostilesTask(DANGER_KEEP_DISTANCE, true);
-            setTask(runAwayTask);
+            runAway(new RunAwayFromHostilesTask(DANGER_KEEP_DISTANCE, true));
             return 70;
         }
 
@@ -211,8 +210,7 @@ public class MobDefenseChain extends SingleTaskChain {
                 }
             } else {
                 doingFunkyStuff = true;
-                runAwayTask = new RunAwayFromCreepersTask(CREEPER_KEEP_DISTANCE);
-                setTask(runAwayTask);
+                runAway(new RunAwayFromCreepersTask(CREEPER_KEEP_DISTANCE));
                 return 50 + blowingUp.getClientFuseTime(1) * 50;
             }
         }
@@ -256,15 +254,13 @@ public class MobDefenseChain extends SingleTaskChain {
                 return 65;
             }
 
-            runAwayTask = new DodgeProjectilesTask(ARROW_KEEP_DISTANCE_HORIZONTAL, ARROW_KEEP_DISTANCE_VERTICAL);
-            setTask(runAwayTask);
+            runAway(new DodgeProjectilesTask(ARROW_KEEP_DISTANCE_HORIZONTAL, ARROW_KEEP_DISTANCE_VERTICAL));
             return 65;
         }
         // Dodge all mobs cause we boutta die son
         if (isInDanger(mod) && !escapeDragonBreath(mod) && !mod.getFoodChain().isShouldStop()) {
             if (targetEntity == null || WorldHelper.isSurroundedByHostiles()) {
-                runAwayTask = new RunAwayFromHostilesTask(DANGER_KEEP_DISTANCE, true);
-                setTask(runAwayTask);
+                runAway(new RunAwayFromHostilesTask(DANGER_KEEP_DISTANCE, true));
                 return 70;
             }
         }
@@ -343,8 +339,7 @@ public class MobDefenseChain extends SingleTaskChain {
                     return 65;
                 } else {
                     // We can't deal with it
-                    runAwayTask = new RunAwayFromHostilesTask(DANGER_KEEP_DISTANCE, true);
-                    setTask(runAwayTask);
+                    runAway(new RunAwayFromHostilesTask(DANGER_KEEP_DISTANCE, true));
                     return 80;
                 }
             }
@@ -367,6 +362,16 @@ public class MobDefenseChain extends SingleTaskChain {
         }
 
         return 0;
+    }
+
+    /**
+     * Runs the escape task and remembers the instance that actually runs: {@code setTask} keeps the running task when
+     * the new one is equal, and "keep running until we're good" must check that one (it knows what it fled from),
+     * not the fresh copy.
+     */
+    private void runAway(CustomBaritoneGoalTask task) {
+        setTask(task);
+        runAwayTask = mainTask instanceof CustomBaritoneGoalTask running && running.equals(task) ? running : task;
     }
 
     private static boolean hasShield(AltoClef mod) {
