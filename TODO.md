@@ -247,11 +247,24 @@ otherwise the smallest throwaway block stack while keeping
 - [ ] Replace `throwawayItems` / `UselessItems` / `getGarbageSlot` with this system.
 - [ ] Build as L2 tasks (compress, drop, store) on top of the slot tasks (see 3a).
 
+### 8. World memory (per world / server)
+Today: knowledge about a world lives in task fields and is lost when the game is closed, e.g. in
+`BeatMinecraftTask` (portal and stronghold positions, bed spawn) and the home base setting.
+- [ ] One file per world/server (`altoclef/worlds/<id>.yml`, same YAML infrastructure as step 1); id from the
+      singleplayer save name or the server address (+ dimension where needed).
+- [ ] Stored: world spawn, own spawn point / bed, nether + end portal locations (both sides), stronghold /
+      end portal room, last death point (+ what was lost), home base, other places worth remembering.
+- [ ] Speedrun state (`BeatMinecraftTask` variables) read from / written to it, so a run can continue after
+      a restart.
+- [ ] Loaded on world join, saved on change and on leave; in-game command to show / edit / clear entries.
+- [ ] Not part of the shareable settings profiles (personal / per world, like the butler lists).
+
 ## Misc
 - Water: getting to land is weak. Placing a crafting table/furnace no longer targets water spots, switches to
   `GetOutOfWaterTask` when no dry spot is reachable, and an existing container is preferred over continued
   placing (2026-11-28). But swimming to land itself (Baritone in open water, `GetOutOfWaterTask` vs.
   `UnstuckChain` both escaping) still did not reach land within ~15 s in an ocean test.
+  Idea for later: use Tungsten as a second pathfinder (e.g. for water/swimming) next to Baritone.
 - Implement configs. (→ roadmap 1)
 - Allow any bed color when crafting beds from wool. (→ roadmap 2, "must match" groups)
 - Add cherry blossom wood as a valid wood type or something? It doesn't seem to work properly atm.
