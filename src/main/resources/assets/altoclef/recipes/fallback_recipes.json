@@ -14574,6 +14574,27 @@
    },
    "type": "minecraft:crafting_shapeless"
   },
+  "altoclef:suspicious_stew": {
+   "ingredients": [
+    {
+     "item": "minecraft:bowl"
+    },
+    {
+     "item": "minecraft:red_mushroom"
+    },
+    {
+     "item": "minecraft:brown_mushroom"
+    },
+    {
+     "tag": "minecraft:small_flowers"
+    }
+   ],
+   "result": {
+    "count": 1,
+    "id": "minecraft:suspicious_stew"
+   },
+   "type": "minecraft:crafting_shapeless"
+  },
   "altoclef:target": {
    "key": {
     "H": {

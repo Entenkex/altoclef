@@ -82,7 +82,7 @@ class RecipeRegistryTest {
         Map<String, Integer> partial = Map.of("minecraft:blue_wool", 2, "minecraft:white_wool", 1);
         assertEquals("minecraft:blue_bed", anyBed.choose("bed", partial).orElseThrow().id());
 
-        // Nothing at all: first recipe
-        assertEquals("minecraft:white_bed", anyBed.choose("bed", Map.of()).orElseThrow().id());
+        // Nothing at all: alphabetically first id (stable, independent of the order the game sends recipes in)
+        assertEquals("minecraft:blue_bed", anyBed.choose("bed", Map.of()).orElseThrow().id());
     }
 }

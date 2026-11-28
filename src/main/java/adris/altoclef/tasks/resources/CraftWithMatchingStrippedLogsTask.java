@@ -17,6 +17,10 @@ public class CraftWithMatchingStrippedLogsTask extends CraftWithMatchingMaterial
     private final ItemTarget _visualTarget;
     private final Function<ItemHelper.WoodItems, Item> _getTargetItem;
 
+    public CraftWithMatchingStrippedLogsTask(Item[] validTargets, Function<ItemHelper.WoodItems, Item> getTargetItem, adris.altoclef.util.RegistryCrafting.MatchingRecipe recipe, int count) {
+        this(validTargets, getTargetItem, recipe.recipe(), recipe.sameMask(), count);
+    }
+
     public CraftWithMatchingStrippedLogsTask(Item[] validTargets, Function<ItemHelper.WoodItems, Item> getTargetItem, CraftingRecipe recipe, boolean[] sameMask, int count) {
         super(new ItemTarget(validTargets, count), recipe, sameMask);
         _getTargetItem = getTargetItem;

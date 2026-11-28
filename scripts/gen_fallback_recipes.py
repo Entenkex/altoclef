@@ -36,6 +36,16 @@ def tags_in(node, out):
     elif isinstance(node, str) and node.startswith("#"):
         out.add(node[1:])
 
+# Recipes the game only has as "special" recipes (not imported), written by hand in vanilla format.
+EXTRA = {
+    "altoclef:suspicious_stew": {
+        "type": "minecraft:crafting_shapeless",
+        "ingredients": [{"item": "minecraft:bowl"}, {"item": "minecraft:red_mushroom"},
+                        {"item": "minecraft:brown_mushroom"}, {"tag": "minecraft:small_flowers"}],
+        "result": {"id": "minecraft:suspicious_stew", "count": 1},
+    },
+}
+
 recipes, used_tags = {}, set()
 with zipfile.ZipFile(jar_path) as jar:
     names = jar.namelist()
@@ -45,6 +55,10 @@ with zipfile.ZipFile(jar_path) as jar:
             continue
         r.pop("category", None); r.pop("group", None); r.pop("show_notification", None)
         recipes["altoclef:" + Path(name).stem] = r
+        tags_in({k: v for k, v in r.items() if k not in ("result", "pattern")}, used_tags)
+
+    for rid, r in EXTRA.items():
+        recipes[rid] = r
         tags_in({k: v for k, v in r.items() if k not in ("result", "pattern")}, used_tags)
 
     tags, todo = {}, sorted(used_tags)

@@ -17,6 +17,10 @@ public class CraftWithMatchingPlanksTask extends CraftWithMatchingMaterialsTask 
     private final ItemTarget _visualTarget;
     private final Function<ItemHelper.WoodItems, Item> _getTargetItem;
 
+    public CraftWithMatchingPlanksTask(Item[] validTargets, Function<ItemHelper.WoodItems, Item> getTargetItem, adris.altoclef.util.RegistryCrafting.MatchingRecipe recipe, int count) {
+        this(validTargets, getTargetItem, recipe.recipe(), recipe.sameMask(), count);
+    }
+
     public CraftWithMatchingPlanksTask(Item[] validTargets, Function<ItemHelper.WoodItems, Item> getTargetItem, CraftingRecipe recipe, boolean[] sameMask, int count) {
         super(new ItemTarget(validTargets, count), recipe, sameMask);
         _getTargetItem = getTargetItem;

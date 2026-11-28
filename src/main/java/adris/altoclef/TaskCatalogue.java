@@ -39,6 +39,8 @@ public class TaskCatalogue {
     private static final HashMap<String, CataloguedResource> nameToResourceTask = new HashMap<>();
     private static final HashMap<Item, CataloguedResource> itemToResourceTask = new HashMap<>();
     private static final HashSet<Item> resourcesObtainable = new HashSet<>();
+    private static final Map<String, Item> craftedEntries = new TreeMap<>();
+    private static final Map<String, Item> smeltedEntries = new TreeMap<>();
 
     public static void init() {
         nameToItemMatches.keySet();
@@ -441,7 +443,7 @@ public class TaskCatalogue {
             alias("diamond_pick", "diamond_pickaxe");
             alias("netherite_pick", "netherite_pickaxe");
             simple("boat", ItemHelper.WOOD_BOAT, CollectBoatTask::new);
-            woodTasks("boat", woodItems -> woodItems.boat, (woodItems, count) -> new CollectBoatTask(woodItems.boat, woodItems.prefix + "_planks", count));
+            woodTasks("boat", woodItems -> woodItems.boat, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.boat, count));
             shapedRecipe3x3("lead", Items.LEAD, 1, "string", "string", o, "string", "slime_ball", o, o, o, "string");
 
             simple("honeycomb", Items.HONEYCOMB, CollectHoneycombTask::new);
@@ -457,15 +459,15 @@ public class TaskCatalogue {
             shapedRecipe3x3("smithing_table", Items.SMITHING_TABLE, 1, "iron_ingot", "iron_ingot", o, p, p, o, p, p, o);
             shapedRecipe3x3("grindstone", Items.GRINDSTONE, 1, s, "stone_slab", s, p, o, p, o, o, o);
             simple("wooden_pressure_plate", ItemHelper.WOOD_PRESSURE_PLATE, CollectWoodenPressurePlateTask::new);
-            woodTasks("pressure_plate", woodItems -> woodItems.pressurePlate, (woodItems, count) -> new CollectWoodenPressurePlateTask(woodItems.pressurePlate, woodItems.prefix + "_planks", count));
+            woodTasks("pressure_plate", woodItems -> woodItems.pressurePlate, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.pressurePlate, count));
             simple("wooden_button", ItemHelper.WOOD_BUTTON, CollectWoodenButtonTask::new);
-            woodTasks("button", woodItems -> woodItems.button, (woodItems, count) -> new CraftInInventoryTask(new RecipeTarget(woodItems.button, 1, CraftingRecipe.newShapedRecipe(woodItems.prefix + "_button", new ItemTarget[]{new ItemTarget(woodItems.planks, 1), null, null, null}, 1))));
+            woodTasks("button", woodItems -> woodItems.button, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.button, count));
             shapedRecipe2x2("stone_pressure_plate", Items.STONE_PRESSURE_PLATE, 1, o, o, "stone", "stone");
             shapedRecipe2x2("stone_button", Items.STONE_BUTTON, 1, "stone", o, o, o);
             shapedRecipe2x2("polished_blackstone_pressure_plate", Items.POLISHED_BLACKSTONE_PRESSURE_PLATE, 1, o, o, "polished_blackstone", "polished_blackstone");
             shapedRecipe2x2("polished_blackstone_button", Items.POLISHED_BLACKSTONE_BUTTON, 1, "polished_blackstone", o, o, o);
             simple("sign", ItemHelper.WOOD_SIGN, CollectSignTask::new).dontMineIfPresent(); // By default, we save signs round these parts.
-            woodTasks("sign", woodItems -> woodItems.sign, (woodItems, count) -> new CollectSignTask(woodItems.sign, woodItems.prefix + "_planks", count));
+            woodTasks("sign", woodItems -> woodItems.sign, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.sign, count));
             {
                 String c = "cobblestone";
                 shapedRecipe3x3("furnace", Items.FURNACE, 1, c, c, c, c, o, c, c, c, c).dontMineIfPresent();
@@ -477,11 +479,11 @@ public class TaskCatalogue {
                 shapedRecipe2x2("lever", Items.LEVER, 1, s, o, c, o);
             }
             simple("hanging_sign", ItemHelper.WOOD_HANGING_SIGN, CollectHangingSignTask::new).dontMineIfPresent();
-            woodTasks("hanging_sign", woodItems -> woodItems.hangingSign, (woodItems, count) -> new CollectHangingSignTask(woodItems.hangingSign, woodItems.prefix + "_stripped_logs", count));
+            woodTasks("hanging_sign", woodItems -> woodItems.hangingSign, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.hangingSign, count));
             shapedRecipe3x3("chest", Items.CHEST, 1, p, p, p, p, o, p, p, p, p).dontMineIfPresent();
             shapedRecipe2x2("torch", Items.TORCH, 4, "coal", o, s, o);
             simple("bed", ItemHelper.BED, CollectBedTask::new);
-            colorfulTasks("bed", colors -> colors.bed, (colors, count) -> new CollectBedTask(colors.bed, colors.colorName + "_wool", count));
+            colorfulTasks("bed", colors -> colors.bed, (colors, count) -> RegistryCrafting.craftTask(colors.bed, count));
             {
                 String i = "iron_ingot";
                 String b = "iron_block";
@@ -544,17 +546,17 @@ public class TaskCatalogue {
 
             // A BUNCH OF WOODEN STUFF
             simple("wooden_stairs", ItemHelper.WOOD_STAIRS, CollectWoodenStairsTask::new);
-            woodTasks("stairs", woodItems -> woodItems.stairs, (woodItems, count) -> new CollectWoodenStairsTask(woodItems.stairs, woodItems.prefix + "_planks", count));
+            woodTasks("stairs", woodItems -> woodItems.stairs, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.stairs, count));
             simple("wooden_slab", ItemHelper.WOOD_SLAB, CollectWoodenSlabTask::new);
-            woodTasks("slab", woodItems -> woodItems.slab, (woodItems, count) -> new CollectWoodenSlabTask(woodItems.slab, woodItems.prefix + "_planks", count));
+            woodTasks("slab", woodItems -> woodItems.slab, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.slab, count));
             simple("wooden_door", ItemHelper.WOOD_DOOR, CollectWoodenDoorTask::new);
-            woodTasks("door", woodItems -> woodItems.door, (woodItems, count) -> new CollectWoodenDoorTask(woodItems.door, woodItems.prefix + "_planks", count));
+            woodTasks("door", woodItems -> woodItems.door, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.door, count));
             simple("wooden_trapdoor", ItemHelper.WOOD_TRAPDOOR, CollectWoodenTrapDoorTask::new);
-            woodTasks("trapdoor", woodItems -> woodItems.trapdoor, (woodItems, count) -> new CollectWoodenTrapDoorTask(woodItems.trapdoor, woodItems.prefix + "_planks", count));
+            woodTasks("trapdoor", woodItems -> woodItems.trapdoor, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.trapdoor, count));
             simple("wooden_fence", ItemHelper.WOOD_FENCE, CollectFenceTask::new);
-            woodTasks("fence", woodItems -> woodItems.fence, (woodItems, count) -> new CollectFenceTask(woodItems.fence, woodItems.prefix + "_planks", count));
+            woodTasks("fence", woodItems -> woodItems.fence, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.fence, count));
             simple("wooden_fence_gate", ItemHelper.WOOD_FENCE_GATE, CollectFenceGateTask::new);
-            woodTasks("fence_gate", woodItems -> woodItems.fenceGate, (woodItems, count) -> new CollectFenceGateTask(woodItems.fenceGate, woodItems.prefix + "_planks", count));
+            woodTasks("fence_gate", woodItems -> woodItems.fenceGate, (woodItems, count) -> RegistryCrafting.craftTask(woodItems.fenceGate, count));
             {
                 String r = "wooden_slab";
                 shapedRecipe3x3("chiseled_bookshelf", Items.CHISELED_BOOKSHELF, 1, p, p, p, r, r, r, p, p, p).dontMineIfPresent();
@@ -681,6 +683,20 @@ public class TaskCatalogue {
         return nameToItemMatches.get(name);
     }
 
+    /**
+     * Catalogue name → the items it collects (e.g. "planks" → all planks).
+     */
+    public static Map<String, Item[]> catalogueEntries() {
+        return Collections.unmodifiableMap(nameToItemMatches);
+    }
+
+    /**
+     * Items that have their own catalogue entry (can be collected one by one).
+     */
+    public static Set<Item> directlyObtainableItems() {
+        return Collections.unmodifiableSet(itemToResourceTask.keySet());
+    }
+
     public static boolean isObtainable(Item item) {
         return resourcesObtainable.contains(item);
     }
@@ -779,14 +795,31 @@ public class TaskCatalogue {
         return shear(name, new Block[]{toShear}, targets);
     }
 
+    /**
+     * A crafted item: the recipe comes from the recipe registry (game recipes, local fallback otherwise),
+     * chosen when the task is created (inventory decides between alternatives). See docs/recipe-model.md.
+     */
+    private static CataloguedResource crafted(String name, Item match) {
+        craftedEntries.put(name, match);
+        return put(name, new Item[]{match}, count -> RegistryCrafting.craftTask(match, count));
+    }
+
+    /**
+     * Catalogue entries crafted via the recipe registry (name → item), for {@code @recipes check}.
+     */
+    public static Map<String, Item> craftedEntries() {
+        return Collections.unmodifiableMap(craftedEntries);
+    }
+
+    // The shapedRecipe* helpers below no longer use their grid/count arguments: the recipe comes from the
+    // registry (crafted). The arguments are removed in roadmap step 2.5.
+
     private static CataloguedResource shapedRecipe2x2(String name, Item match, int outputCount, String s0, String s1, String s2, String s3) {
-        CraftingRecipe recipe = CraftingRecipe.newShapedRecipe(name, new ItemTarget[]{t(s0), t(s1), t(s2), t(s3)}, outputCount);
-        return put(name, new Item[]{match}, count -> new CraftInInventoryTask(new RecipeTarget(match, count, recipe)));
+        return crafted(name, match);
     }
 
     private static CataloguedResource shapedRecipe3x3(String name, Item match, int outputCount, String s0, String s1, String s2, String s3, String s4, String s5, String s6, String s7, String s8) {
-        CraftingRecipe recipe = CraftingRecipe.newShapedRecipe(name, new ItemTarget[]{t(s0), t(s1), t(s2), t(s3), t(s4), t(s5), t(s6), t(s7), t(s8)}, outputCount);
-        return put(name, new Item[]{match}, count -> new CraftInTableTask(new RecipeTarget(match, count, recipe)));
+        return crafted(name, match);
     }
 
     private static CataloguedResource shapedRecipe2x2Block(String name, Item match, String material) {
@@ -813,8 +846,20 @@ public class TaskCatalogue {
         return shapedRecipe3x3(name, match, 6, material, material, material, material, material, material, null, null, null);
     }
 
+    /**
+     * A smelted item: the furnace recipe comes from the recipe registry (the inventory decides between inputs,
+     * e.g. raw copper or copper ore). {@code materials}/{@code optionalMaterials} are no longer used (removed in 2.5).
+     */
     private static CataloguedResource smelt(String name, Item[] matches, String materials, Item... optionalMaterials) {
-        return put(name, matches, count -> new SmeltInFurnaceTask(new SmeltTarget(new ItemTarget(matches, count), new ItemTarget(materials, count), optionalMaterials)));
+        smeltedEntries.put(name, matches[0]);
+        return put(name, matches, count -> RegistryCrafting.smeltTask(matches[0], count));
+    }
+
+    /**
+     * Catalogue entries smelted via the recipe registry (name → item), for {@code @recipes check}.
+     */
+    public static Map<String, Item> smeltedEntries() {
+        return Collections.unmodifiableMap(smeltedEntries);
     }
 
     private static CataloguedResource smelt(String name, Item match, String materials, Item... optionalMaterials) {

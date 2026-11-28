@@ -29,6 +29,17 @@ public final class LegacyRecipeAdapter {
      * @return empty for cooking recipes or if an ingredient has no item that exists in this Minecraft version
      */
     public static Optional<CraftingRecipe> toLegacy(Recipe recipe) {
+        return toLegacy(recipe, ingredient -> {
+            Item[] items = items(ingredient.items());
+            return items.length == 0 ? Optional.empty() : Optional.of(new ItemTarget(items, 1));
+        });
+    }
+
+    /**
+     * Like {@link #toLegacy(Recipe)}, but {@code cell} decides which {@link ItemTarget} a non-empty ingredient
+     * becomes (e.g. a catalogue name, so the bot knows how to collect it). Empty result = recipe not usable.
+     */
+    public static Optional<CraftingRecipe> toLegacy(Recipe recipe, java.util.function.Function<Ingredient, Optional<ItemTarget>> cell) {
         if (recipe.station() != Station.CRAFTING) return Optional.empty();
         int size = recipe.fitsInventory() ? 2 : 3;
         List<Ingredient> grid;
@@ -46,9 +57,9 @@ public final class LegacyRecipeAdapter {
                 slots[i] = ItemTarget.EMPTY;
                 continue;
             }
-            Item[] items = items(ingredient.items());
-            if (items.length == 0) return Optional.empty();
-            slots[i] = new ItemTarget(items, 1);
+            Optional<ItemTarget> target = cell.apply(ingredient);
+            if (target.isEmpty()) return Optional.empty();
+            slots[i] = target.get();
         }
         return Optional.of(CraftingRecipe.newShapedRecipe(shortName(recipe), slots, recipe.output().count()));
     }

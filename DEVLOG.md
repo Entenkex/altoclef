@@ -133,6 +133,22 @@ the parent resource task emptied the grid the manual task was filling. Existed b
 the item that should go in, so it kept starting the move task without material.
 **Fix:** per-slot amount from the still missing count; check `toFill`'s items in the inventory.
 
+### Suspicious stew: bot walked off to find an allium although it had a dandelion
+**Symptom:** `@get suspicious_stew` with bowl, both mushrooms and a dandelion in the inventory: the bot ran away.
+**Cause:** the ingredient `#small_flowers` has no matching catalogue entry (`flower` also contains tall
+flowers), so `IngredientResolver` took the first obtainable flower alphabetically (allium).
+**Fix:** an allowed item that is already in the inventory wins before the subset/first-item fallbacks.
+
+### Hand-written "same material" masks did not match their recipes
+**Found while:** moving the `CraftWithMatching*` tasks to the registry (step 2.4b). Example:
+`CollectWoodenButtonTask` had the mask `{true, true, false, false}` for a 1-plank recipe, so the generated
+recipe put planks into two slots (not a valid button recipe) and counted 2 planks per button.
+**Fix:** recipe and mask are derived from the registry recipe of one variant (`RegistryCrafting.matchingRecipe`).
+
+### Recipe choice depended on the order the game sent recipes
+**Cause:** `RecipeManagerWrapper.values()` collects into a set, so the order of equal candidates in
+`RecipeRegistry.choose` changed between worlds. **Fix:** last tie-break is the alphabetical recipe id.
+
 ## Known, not fixed yet
 
 - **2026-11-27:** `CraftingRecipeTracker` fills recipe slots linearly and ignores the recipe width, so narrow shaped
@@ -144,6 +160,7 @@ the item that should go in, so it kept starting the move task without material.
   shape and count 4 instead of 6), `carrot_on_a_stick`/`warped_fungus_on_a_stick` (side by side instead of
   diagonal), `lead` (gives 2, not 1), `quartz_pillar` (gives 2, not 4), `red_nether_bricks` (needs nether brick
   + nether wart, not 4 nether wart). `suspicious_stew` is a special recipe (not imported, expected).
-  Fixed by taking catalogue recipes from the registry (TODO 2.4).
+  Fixed in step 2.4a: catalogue recipes come from the registry. Also: the wooden button entry always crafted
+  1 button, whatever count was asked.
 - **2026-11-27:** `ItemPriorityCalculator` checks `count > max`, `DistancePriorityCalculator` checks `count >= max`
   (pinned by `PriorityCalculatorTest`). To be cleaned up with the new priority system (TODO step 3).

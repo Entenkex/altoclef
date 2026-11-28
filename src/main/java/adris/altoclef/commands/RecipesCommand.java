@@ -19,6 +19,7 @@ import adris.altoclef.tasks.container.CraftInTableTask;
 import adris.altoclef.trackers.RecipeRegistryTracker;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.RegistryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
 
@@ -42,27 +43,27 @@ import java.util.stream.Stream;
  * <pre>
  * recipes            how many recipes were imported / are fallback
  * recipes &lt;item&gt;     the recipes for an item, with grid
- * recipes compare    compare the hand-written TaskCatalogue recipes with the registry (report in altoclef/recipe_compare.txt)
+ * recipes check      which recipe each crafted catalogue entry uses (report in altoclef/recipe_check.txt)
  * </pre>
  */
 public class RecipesCommand extends Command {
 
-    private static final Path REPORT = Paths.get("altoclef", "recipe_compare.txt");
+    private static final Path REPORT = Paths.get("altoclef", "recipe_check.txt");
 
     public RecipesCommand() {
-        super("recipes", "Show recipes: recipes [item | compare]",
+        super("recipes", "Show recipes: recipes [item | check]",
                 new SuggestingStringArg("item", "", RecipesCommand::suggestions));
     }
 
     private static Stream<String> suggestions() {
         AltoClef mod = AltoClef.getInstance();
-        if (mod == null || mod.getRecipeRegistryTracker() == null) return Stream.of("compare");
+        if (mod == null || mod.getRecipeRegistryTracker() == null) return Stream.of("check");
         Set<String> outputs = new java.util.TreeSet<>();
         for (Recipe recipe : mod.getRecipeRegistryTracker().getRegistry().all()) {
             String item = recipe.output().item();
             outputs.add(item.startsWith("minecraft:") ? item.substring("minecraft:".length()) : item);
         }
-        return Stream.concat(Stream.of("compare"), outputs.stream());
+        return Stream.concat(Stream.of("check"), outputs.stream());
     }
 
     @Override
@@ -71,8 +72,8 @@ public class RecipesCommand extends Command {
         RecipeRegistryTracker tracker = mod.getRecipeRegistryTracker();
         if (arg.isEmpty()) {
             stats(tracker);
-        } else if (arg.equalsIgnoreCase("compare")) {
-            compare(tracker.getRegistry());
+        } else if (arg.equalsIgnoreCase("check")) {
+            check();
         } else {
             show(tracker.getRegistry(), arg);
         }
@@ -94,7 +95,7 @@ public class RecipesCommand extends Command {
         if (!registry.fallbackUsed().isEmpty()) {
             lines.add("§7  Fallback used for: " + String.join(", ", registry.fallbackUsed()));
         }
-        lines.add("§7recipes <item> for details, recipes compare to check the old hand-written recipes");
+        lines.add("§7recipes <item> for details, recipes check to see which recipe each catalogue entry uses");
         logLines("§aRecipes", lines);
     }
 
@@ -141,32 +142,38 @@ public class RecipesCommand extends Command {
         return lines;
     }
 
-    // ------------------------------------------------------------------ compare
+    // ------------------------------------------------------------------ check
 
-    private void compare(RecipeRegistry registry) {
-        Map<String, RecipeTarget> handWritten = collectHandWritten();
-        Map<RecipeComparison.Status, List<String>> byStatus = new EnumMap<>(RecipeComparison.Status.class);
-        StringBuilder report = new StringBuilder("# Hand-written TaskCatalogue recipes vs. recipe registry\n")
-                .append("# SAME / DIFFERENT_COUNT / DIFFERENT_LAYOUT / DIFFERENT_INGREDIENTS / NO_RECIPE\n\n");
-
-        for (Map.Entry<String, RecipeTarget> entry : handWritten.entrySet()) {
-            RecipeTarget target = entry.getValue();
-            String output = Registries.ITEM.getId(target.getOutputItem()).toString();
-            List<Set<String>> grid = new ArrayList<>();
-            for (ItemTarget slot : target.getRecipe().getSlots()) grid.add(itemIds(slot));
-            RecipeComparison.Result result = RecipeComparison.compare(output, grid, target.getRecipe().outputCount(), registry);
-            byStatus.computeIfAbsent(result.status(), k -> new ArrayList<>()).add(entry.getKey());
-
-            report.append(result.status()).append("  ").append(entry.getKey()).append(" -> ").append(output)
-                    .append(" x").append(target.getRecipe().outputCount()).append('\n');
-            if (result.status() != RecipeComparison.Status.SAME) {
-                report.append("    hand: ").append(describeHand(grid)).append('\n');
-                if (result.closest() != null) {
-                    report.append("    registry: ").append(result.closest()).append('\n');
-                    for (String line : shapeLines(result.closest().shape())) {
-                        report.append("      ").append(line.replace("§7", "").strip()).append('\n');
-                    }
-                }
+    /**
+     * For every catalogue entry crafted via the registry: which recipe would be used and how each
+     * ingredient is collected. Entries without a usable recipe are listed in chat.
+     */
+    private void check() {
+        Map<String, Item> crafted = TaskCatalogue.craftedEntries();
+        List<String> missing = new ArrayList<>();
+        StringBuilder report = new StringBuilder("# Catalogue entries crafted from the recipe registry\n")
+                .append("# name -> recipe used (with an empty inventory) and how each slot is collected\n\n");
+        for (Map.Entry<String, Item> entry : crafted.entrySet()) {
+            ResourceTask task = RegistryCrafting.craftTask(entry.getValue(), 1);
+            RecipeTarget target = null;
+            if (task instanceof CraftInInventoryTask inventory) target = inventory.getRecipeTarget();
+            else if (task instanceof CraftInTableTask table && table.getRecipeTargets().length > 0) target = table.getRecipeTargets()[0];
+            if (target == null) {
+                missing.add(entry.getKey());
+                report.append("MISSING  ").append(entry.getKey()).append('\n');
+                continue;
+            }
+            report.append("ok       ").append(entry.getKey()).append(" x").append(target.getRecipe().outputCount())
+                    .append(task instanceof CraftInTableTask ? " (table)" : " (inventory)").append('\n');
+            List<String> slots = new ArrayList<>();
+            for (ItemTarget slot : target.getRecipe().getSlots()) {
+                if (slot == null || slot.isEmpty()) slots.add("-");
+                else if (slot.isCatalogueItem()) slots.add("\"" + slot.getCatalogueName() + "\"");
+                else slots.add(Registries.ITEM.getId(slot.getMatches()[0]).getPath());
+            }
+            int size = slots.size() == 4 ? 2 : 3;
+            for (int y = 0; y < size; y++) {
+                report.append("    [").append(String.join(", ", slots.subList(y * size, y * size + size))).append("]\n");
             }
         }
         try {
@@ -175,69 +182,23 @@ public class RecipesCommand extends Command {
         } catch (IOException e) {
             logUserError("Could not write " + REPORT + ": " + e.getMessage());
         }
+        report.append("\n# Smelted entries\n");
+        Map<String, Item> smelted = TaskCatalogue.smeltedEntries();
+        for (Map.Entry<String, Item> entry : smelted.entrySet()) {
+            ResourceTask task = RegistryCrafting.smeltTask(entry.getValue(), 1);
+            if (task == null) {
+                missing.add(entry.getKey());
+                report.append("MISSING  ").append(entry.getKey()).append('\n');
+            } else {
+                report.append("ok       ").append(entry.getKey()).append("  ").append(task).append('\n');
+            }
+        }
 
         List<String> lines = new ArrayList<>();
-        for (RecipeComparison.Status status : RecipeComparison.Status.values()) {
-            List<String> names = byStatus.getOrDefault(status, List.of());
-            if (names.isEmpty()) continue;
-            String color = status == RecipeComparison.Status.SAME ? "§a" : "§e";
-            String sample = status == RecipeComparison.Status.SAME ? ""
-                    : ": " + String.join(", ", names.subList(0, Math.min(8, names.size()))) + (names.size() > 8 ? ", ..." : "");
-            lines.add("  " + color + status + "§7 " + names.size() + sample);
-        }
-        lines.add("§7Details: " + REPORT.toAbsolutePath());
-        logLines("§aCompared " + handWritten.size() + " hand-written recipes", lines);
-    }
-
-    /**
-     * Catalogue name → hand-written recipe, for all catalogue entries that are a plain crafting task.
-     */
-    private Map<String, RecipeTarget> collectHandWritten() {
-        Map<String, RecipeTarget> result = new LinkedHashMap<>();
-        for (String name : new TreeMap<String, Boolean>(toMap(TaskCatalogue.resourceNames())).keySet()) {
-            ResourceTask task;
-            try {
-                task = TaskCatalogue.getItemTask(name, 1);
-            } catch (RuntimeException e) {
-                continue;
-            }
-            if (task instanceof CraftInInventoryTask inventory) {
-                result.put(name, inventory.getRecipeTarget());
-            } else if (task instanceof CraftInTableTask table) {
-                RecipeTarget[] targets = table.getRecipeTargets();
-                if (targets.length > 0) result.put(name, targets[0]);
-            }
-        }
-        return result;
-    }
-
-    private static Map<String, Boolean> toMap(java.util.Collection<String> names) {
-        Map<String, Boolean> map = new LinkedHashMap<>();
-        for (String name : names) map.put(name, true);
-        return map;
-    }
-
-    private static Set<String> itemIds(ItemTarget target) {
-        Set<String> ids = new LinkedHashSet<>();
-        if (target == null || target.isEmpty()) return ids;
-        for (Item item : target.getMatches()) ids.add(Registries.ITEM.getId(item).toString());
-        return ids;
-    }
-
-    private static String describeHand(List<Set<String>> grid) {
-        List<Ingredient> cells = new ArrayList<>();
-        for (Set<String> cell : grid) {
-            cells.add(cell.isEmpty() ? Ingredient.EMPTY : Ingredient.anyOf(cell.size() == 1 ? null : shortList(cell), cell));
-        }
-        return RecipeComparison.describe(cells, grid.size() == 4 ? 2 : 3);
-    }
-
-    private static String shortList(Set<String> items) {
-        List<String> names = new ArrayList<>();
-        for (String id : items) {
-            names.add(id.replace("minecraft:", ""));
-            if (names.size() == 2) break;
-        }
-        return String.join("|", names) + (items.size() > 2 ? "|..." : "");
+        lines.add("  \u00A7aok\u00A77 " + (crafted.size() + smelted.size() - missing.size())
+                + " (" + crafted.size() + " crafted, " + smelted.size() + " smelted)");
+        if (!missing.isEmpty()) lines.add("  \u00A7cno usable recipe\u00A77 " + missing.size() + ": " + String.join(", ", missing));
+        lines.add("\u00A77Details: " + REPORT.toAbsolutePath());
+        logLines("\u00A7aChecked " + (crafted.size() + smelted.size()) + " crafted/smelted catalogue entries", lines);
     }
 }

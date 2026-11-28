@@ -32,7 +32,9 @@ class FallbackRecipesTest {
         RecipeRegistry registry = load(new ArrayList<>());
         for (String item : List.of("crafting_table", "stick", "wooden_pickaxe", "stone_pickaxe", "iron_pickaxe",
                 "diamond_pickaxe", "furnace", "chest", "torch", "bucket", "shield", "white_bed", "oak_boat",
-                "iron_ingot", "gold_ingot", "glass", "charcoal", "stone", "bread", "iron_helmet", "ender_eye")) {
+                "iron_ingot", "gold_ingot", "glass", "charcoal", "stone", "bread", "iron_helmet", "ender_eye",
+                // special recipe in the game (not imported), hand-written fallback
+                "suspicious_stew")) {
             assertFalse(registry.byOutput(item).isEmpty(), "no fallback recipe for " + item);
         }
     }

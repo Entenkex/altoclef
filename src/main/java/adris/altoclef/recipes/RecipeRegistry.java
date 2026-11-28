@@ -92,17 +92,42 @@ public final class RecipeRegistry {
 
     /**
      * Picks the recipe for {@code item} that can be made most often with the inventory
-     * (e.g. which bed colour or which wood). Ties: inventory-craftable first, then the order of the recipes.
+     * (e.g. which bed colour or which wood). Ties: more ingredients present, inventory-craftable,
+     * the main recipe (id = item, e.g. {@code minecraft:stick} before {@code minecraft:stick_from_bamboo_item}),
+     * then the alphabetically first id.
      *
      * @param inventory item id → count
      */
     public Optional<Recipe> choose(String item, Map<String, Integer> inventory) {
-        List<Recipe> candidates = byOutput(item);
+        return choose(item, inventory, r -> true);
+    }
+
+    /**
+     * Like {@link #choose(String, Map)}, only among recipes accepted by {@code usable}
+     * (e.g. "the bot knows how to collect all ingredients").
+     */
+    public Optional<Recipe> choose(String item, Map<String, Integer> inventory, java.util.function.Predicate<Recipe> usable) {
+        List<Recipe> candidates = byOutput(item).stream().filter(usable).toList();
         return candidates.stream().max(Comparator
                 .comparingInt((Recipe r) -> r.possibleCrafts(inventory))
                 .thenComparingInt(r -> ingredientsPresent(r, inventory))
                 .thenComparing(Recipe::fitsInventory)
-                .thenComparingInt(r -> -candidates.indexOf(r)));
+                .thenComparing(RecipeRegistry::isMainRecipe)
+                // Last: alphabetical id. The game sends recipes in no fixed order, so "first" would change per world.
+                .thenComparing(Recipe::id, Comparator.reverseOrder()));
+    }
+
+    /**
+     * The vanilla "main" recipe has the item's name as id ({@code minecraft:stick} → {@code minecraft:stick}),
+     * the fallback copy {@code altoclef:stick}.
+     */
+    static boolean isMainRecipe(Recipe recipe) {
+        return path(recipe.id()).equals(path(recipe.output().item()));
+    }
+
+    private static String path(String id) {
+        int colon = id.indexOf(':');
+        return colon < 0 ? id : id.substring(colon + 1);
     }
 
     /**

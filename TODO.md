@@ -92,9 +92,26 @@ Scope of this step: crafting + smelting (furnace, smoker, blast furnace, campfir
       (crafting table, wooden pickaxe, sticks, slabs, stairs with and without recipe book).
       Also fixed three old bugs in manual crafting (`CraftGenericManuallyTask`): grid cleared by the
       parent resource task, per-slot amount ignored items already owned, wrong "material left" check.
-- [ ] 2.4 `TaskCatalogue`: crafted/smelted entries from the registry; `CraftWithMatching*` → `choose`.
-- [ ] 2.5 Remove `CraftingRecipe`, `RecipeTarget`, `JankCraftingRecipeMapping`, `shapedRecipe*` helpers.
+- [x] 2.4a `TaskCatalogue` crafted entries (`shapedRecipe*` helpers, wooden buttons) take their recipe from
+      the registry (`util/RegistryCrafting`): `RecipeRegistry.choose` with a "can collect all ingredients"
+      filter (`recipes/IngredientResolver`: ingredient → catalogue name or single item) and main-recipe
+      tie-break. `@recipes check`: 284/284 entries have a usable recipe (suspicious stew via a hand-written
+      fallback recipe). Fixes the 9 wrong hand-written recipes and the button count (was always 1).
+- [x] 2.4b Smelting entries (`smelt(...)`) from the registry (`RegistryCrafting.smeltTask`, furnace);
+      concrete wood/colour variants (`oak_stairs`, `red_bed`, ...) crafted from the registry; the generic
+      "any variant" entries keep their `CraftWithMatching*` strategy but take recipe + same-material mask from
+      the registry (`RegistryCrafting.matchingRecipe`, old grid only as last resort). `choose` ties are now
+      alphabetical (game sends recipes in random order). Tested in-game 1.21.1: `@recipes check` 311/311,
+      glass, charcoal, wooden stairs, birch door, bed.
+- [ ] 2.4c Replace the `CraftWithMatching*` tasks with one "choose a variant" task (pick the variant output via
+      `RecipeRegistry.choose` across all variants; collect-any-then-craft-majority strategy rebuilt on top);
+      fits the shopping list planner (step 4).
+- [ ] 2.5 Remove `CraftingRecipe`, `RecipeTarget`, the unused grid arguments of the `shapedRecipe*`/`smelt`
+      helpers and the last-resort grids (`createRecipe` in the `Collect*` variant tasks).
 - [ ] Later: smithing, stonecutter; reading data packs (1.21.2+ clients get no recipes from the server).
+- [ ] Later: prefer recipe variants by their result's usefulness, not only by what is in the inventory
+      (e.g. suspicious stew: the flower decides the effect — regeneration/saturation instead of poison or
+      blindness; dyes/colours, wood types). Needs a value per variant, ties in with item values (step 7).
 
 ### 3. Task architecture: layers, strategies, priorities (together with 5)
 
