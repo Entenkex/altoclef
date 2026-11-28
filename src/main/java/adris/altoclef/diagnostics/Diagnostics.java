@@ -17,6 +17,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.DeathScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.network.ServerInfo;
+import net.minecraft.item.ItemStack;
+import adris.altoclef.util.MinecraftItemIds;
+import adris.altoclef.util.helpers.StorageHelper;
 import net.minecraft.text.Text;
 
 import java.io.IOException;
@@ -25,6 +28,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.TreeMap;
+import java.util.Set;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +67,11 @@ public final class Diagnostics implements TaskSystemListener {
     private String lastDimension;
     private boolean summaryRunning;
     private String lastUserTask = "";
+    private final InventoryWatch inventoryWatch = new InventoryWatch();
+    /** Items the bot threw away since the last inventory snapshot (id → count). */
+    private final Map<String, Integer> droppedSinceSnapshot = new TreeMap<>();
+    /** Item id → tick of the bot's last drop of it. */
+    private final Map<String, Long> lastBotDrop = new HashMap<>();
     private int lastCheckedPathSize;
     private int loopEndsAt = -1;
 
@@ -106,6 +118,25 @@ public final class Diagnostics implements TaskSystemListener {
     }
 
     /**
+     * The bot throws {@code stack} out of the inventory (slot click outside the window / throw).
+     * Ordinary items are only summed up for the next inventory snapshot; tools, weapons and armor are logged at once.
+     */
+    public static void itemDropped(ItemStack stack) {
+        if (instance == null || instance.log == null || stack == null || stack.isEmpty()) return;
+        String id = MinecraftItemIds.id(stack.getItem());
+        instance.droppedSinceSnapshot.merge(id, stack.getCount(), Integer::sum);
+        instance.lastBotDrop.put(id, instance.tick);
+        if (stack.isDamageable() && instance.config.logEvents.get()) {
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("item", id);
+            fields.put("count", stack.getCount());
+            fields.put("durability", (stack.getMaxDamage() - stack.getDamage()) + "/" + stack.getMaxDamage());
+            fields.put("path", currentPath());
+            instance.event("item_drop", "Bot dropped " + id, fields);
+        }
+    }
+
+    /**
      * A user task was set ({@code idle} = the idle command's task).
      */
     public static void userTaskStarted(Task task, boolean idle) {
@@ -138,6 +169,92 @@ public final class Diagnostics implements TaskSystemListener {
         boolean onDeathScreen = MinecraftClient.getInstance().currentScreen instanceof DeathScreen;
         if (onDeathScreen && !wasOnDeathScreen) onDeath();
         wasOnDeathScreen = onDeathScreen;
+
+        checkInventory(onDeathScreen);
+    }
+
+    /**
+     * Tools / weapons / armor that disappear are logged at once ({@code item_lost}); the whole inventory is written
+     * every {@code debug.inventorySnapshotSeconds} (with what the bot threw away since), so drops of ordinary items
+     * don't flood the log.
+     */
+    private void checkInventory(boolean dead) {
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        if (player == null) return;
+        if (dead || player.getHealth() <= 0) {
+            inventoryWatch.reset();
+            return;
+        }
+        Map<String, InventoryWatch.Tracked> damageable = new HashMap<>();
+        List<ItemStack> stacks = inventoryStacks(player);
+        for (ItemStack stack : stacks) {
+            if (!stack.isDamageable()) continue;
+            String id = MinecraftItemIds.id(stack.getItem());
+            int remaining = stack.getMaxDamage() - stack.getDamage();
+            InventoryWatch.Tracked old = damageable.get(id);
+            damageable.put(id, old == null ? new InventoryWatch.Tracked(1, remaining)
+                    : new InventoryWatch.Tracked(old.count() + 1, Math.min(old.minRemaining(), remaining)));
+        }
+        Set<String> recentDrops = new HashSet<>();
+        lastBotDrop.forEach((id, dropTick) -> {
+            if (tick - dropTick <= 20) recentDrops.add(id);
+        });
+        for (InventoryWatch.Loss loss : inventoryWatch.update(damageable, recentDrops)) {
+            summary.itemLost(loss.item(), loss.reason());
+            if (!config.logEvents.get()) continue;
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("item", loss.item());
+            fields.put("before", loss.before());
+            fields.put("after", loss.after());
+            fields.put("reason", loss.reason());
+            fields.put("path", currentPath());
+            event("item_lost", loss.item() + " lost (" + loss.reason() + ")", fields);
+        }
+        long interval = Math.max(1, config.inventorySnapshotSeconds.get()) * 20L;
+        if (tick % interval == 1 && config.logEvents.get()) {
+            Map<String, Object> fields = new LinkedHashMap<>();
+            fields.put("items", itemCounts(stacks));
+            fields.put("durability", durabilities(stacks));
+            fields.put("droppedSinceLast", new TreeMap<>(droppedSinceSnapshot));
+            event("inventory", "Inventory snapshot", fields);
+            droppedSinceSnapshot.clear();
+        }
+    }
+
+    /**
+     * Main inventory, armor, offhand and the cursor stack.
+     */
+    private static List<ItemStack> inventoryStacks(ClientPlayerEntity player) {
+        List<ItemStack> stacks = new ArrayList<>();
+        for (int i = 0; i < player.getInventory().size(); i++) {
+            ItemStack stack = player.getInventory().getStack(i);
+            if (!stack.isEmpty()) stacks.add(stack);
+        }
+        ItemStack cursor = StorageHelper.getItemStackInCursorSlot();
+        if (!cursor.isEmpty()) stacks.add(cursor);
+        return stacks;
+    }
+
+    private static Map<String, Integer> itemCounts(List<ItemStack> stacks) {
+        Map<String, Integer> counts = new TreeMap<>();
+        for (ItemStack stack : stacks) counts.merge(MinecraftItemIds.id(stack.getItem()), stack.getCount(), Integer::sum);
+        return counts;
+    }
+
+    private static Map<String, String> durabilities(List<ItemStack> stacks) {
+        Map<String, String> result = new TreeMap<>();
+        for (ItemStack stack : stacks) {
+            if (!stack.isDamageable()) continue;
+            String value = (stack.getMaxDamage() - stack.getDamage()) + "/" + stack.getMaxDamage();
+            result.merge(MinecraftItemIds.id(stack.getItem()), value, (a, b) -> a + ", " + b);
+        }
+        return result;
+    }
+
+    private static List<String> currentPath() {
+        AltoClef mod = AltoClef.getInstance();
+        if (mod == null || mod.getTaskRunner() == null || mod.getTaskRunner().getCurrentTaskChain() == null) return List.of();
+        return taskPath(mod.getTaskRunner().getCurrentTaskChain());
     }
 
     private void onDeath() {
@@ -147,7 +264,15 @@ public final class Diagnostics implements TaskSystemListener {
             if (message != null) cause = message.getString();
         }
         summary.death(cause);
-        event("death", "Died: " + cause, Map.of("cause", cause));
+        Map<String, Object> deathFields = new LinkedHashMap<>();
+        deathFields.put("cause", cause);
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        if (player != null) {
+            List<ItemStack> stacks = inventoryStacks(player);
+            deathFields.put("items", itemCounts(stacks));
+            deathFields.put("durability", durabilities(stacks));
+        }
+        event("death", "Died: " + cause, deathFields);
         if (config.dumpOnDeath.get()) dump("death", cause);
         writeSummary("death");
         if (config.summaryInChat.get()) Debug.logLines("Died (" + cause + "). Run summary:", summary.chatLines());
@@ -175,6 +300,9 @@ public final class Diagnostics implements TaskSystemListener {
         if (log == null) return;
         String chosenName = chosen == null ? null : chosen.getName();
         summary.tick(chosenName);
+        ClientPlayerEntity player = MinecraftClient.getInstance().player;
+        boolean inWater = player != null && player.isTouchingWater();
+        if (player != null) summary.position(player.getX(), player.getZ(), inWater);
 
         Map<String, Object> priorities = new LinkedHashMap<>();
         for (ChainPriority c : chains) {
@@ -183,6 +311,7 @@ public final class Diagnostics implements TaskSystemListener {
 
         Map<String, Object> snapshot = context();
         snapshot.put("chain", chosenName);
+        snapshot.put("water", inWater);
         snapshot.put("priorities", priorities);
         snapshot.put("path", chosen == null ? List.of() : taskPath(chosen));
         recorder.record(snapshot);
@@ -352,6 +481,9 @@ public final class Diagnostics implements TaskSystemListener {
         lastDimension = null;
         wasOnDeathScreen = false;
         recorder.clear();
+        inventoryWatch.reset();
+        droppedSinceSnapshot.clear();
+        lastBotDrop.clear();
         lastCheckedPathSize = 0;
         loopEndsAt = -1;
         dumpLimiter.resetSession();

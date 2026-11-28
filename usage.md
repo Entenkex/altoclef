@@ -28,7 +28,10 @@ switches between task chains with the priorities of all chains, task start/stop,
 commands. On death, when the bot keeps flipping between two chains, or when the task path repeats itself (planning
 loop), the last 30 seconds (one snapshot per tick)
 are written as `<session>-t<tick>-<trigger>.json`; `@dump` does the same by hand. The last 10 sessions are kept.
-Settings: `debug.*` (e.g. `@set debug.flightRecorderSeconds 60`). Readable timeline:
+Every minute the log gets an inventory snapshot (items, durability, what was thrown away); a tool, weapon or
+armor piece that disappears is logged at once as `item_lost` (broke / dropped by the bot / unknown).
+The run summary also shows the distance walked (and net / max distance from the start), time in water and how
+often the unstuck chain took over. Settings: `debug.*` (e.g. `@set debug.flightRecorderSeconds 60`). Readable timeline:
 `scripts/decision_timeline.py <file>` (see `--help`). Design: [docs/task-architecture.md](docs/task-architecture.md) 2.6.
 
 

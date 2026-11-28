@@ -75,6 +75,14 @@ public class SlotHandler {
         }
         registerSlotAction();
         int syncId = player.currentScreenHandler.syncId;
+        // Decision log: what the bot throws out of the inventory (click outside the window, or a throw).
+        if (windowSlot == -999 && type == SlotActionType.PICKUP) {
+            adris.altoclef.diagnostics.Diagnostics.itemDropped(StorageHelper.getItemStackInCursorSlot().copy());
+        } else if (type == SlotActionType.THROW && windowSlot >= 0 && windowSlot < player.currentScreenHandler.slots.size()) {
+            net.minecraft.item.ItemStack thrown = player.currentScreenHandler.getSlot(windowSlot).getStack().copy();
+            if (mouseButton == 0 && !thrown.isEmpty()) thrown.setCount(1); // without ctrl: one item
+            adris.altoclef.diagnostics.Diagnostics.itemDropped(thrown);
+        }
 
         try {
             mod.getController().clickSlot(syncId, windowSlot, mouseButton, type, player);

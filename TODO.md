@@ -186,6 +186,7 @@ hard-coded numbers 100–25000). Thrashing is patched with `changedTaskTimer`,
 - [x] Decision log `altoclef/logs/<session>.jsonl`, flight recorder dumps (death, thrashing, `@dump`),
       run summary (`@summary`, chat on task finish / death), thrash detector, task loop detector, `debug.*` settings,
       `scripts/decision_timeline.py`.
+- [x] Baseline metrics in the run summary: distance walked / net / max, time in water, chain entries (unstuck count).
 - [ ] Baseline speedruns on the old runner (after the recipe cleanup, step R).
 - [ ] Exception in a task as dump trigger (comes with the failure signal, step 1).
 
@@ -297,6 +298,13 @@ Today: knowledge about a world lives in task fields and is lost when the game is
 - Allow any bed color when crafting beds from wool. (→ roadmap 2, "must match" groups)
 - Add cherry blossom wood as a valid wood type or something? It doesn't seem to work properly atm.
 - Maybe add some sort of system that finds and uses seed of the current world?
+- Ideas from the baseline speedruns (2026-11-28), to consider at the very end:
+  - Task delay timers: don't stand next to a furnace while it smelts; do other work and come back when done
+    (ties in with the shopping list, step 4).
+  - With enough armor, ignore annoying mobs (zombies, skeletons) instead of fighting or fleeing; only deal with
+    them when they actually threaten (ties in with MobDefense as a SURVIVAL source, step 4 of the task architecture).
+  - ~~Item drops not visible in the decision log~~ → done: inventory snapshot every minute, `item_lost` / `item_drop`
+    for tools, weapons, armor (branch `feature/baseline-metrics`).
 
 
 ## Common death causes

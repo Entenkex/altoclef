@@ -84,7 +84,29 @@ class DiagnosticsPartsTest {
         List<String> chat = summary.chatLines();
         assertEquals("Time 4s: User Tasks 75%, Mob Defense 25%", chat.get(0));
         assertEquals("Switches: 3, most: Mob Defense <-> User Tasks (2)", chat.get(1));
-        assertEquals("Deaths: 1 (last: Steve was slain by Zombie)", chat.get(2));
+        assertEquals("Moved 0 blocks (net 0, max 0), in water 0s, unstuck 0x", chat.get(2));
+        assertEquals("Deaths: 1 (last: Steve was slain by Zombie)", chat.get(3));
+        assertEquals(Map.of("Mob Defense", 1, "User Tasks", 1, "Food", 1), map.get("chainEntries"));
+    }
+
+    @Test
+    void runSummaryMeasuresMovementAndWater() {
+        RunSummary summary = new RunSummary();
+        summary.start("explore");
+        // 30 blocks east, 30 back, then 40 north: walked 100, ends 40 from the start, was 40 away at most.
+        for (int x = 0; x <= 30; x++) summary.position(x, 0, false);
+        for (int x = 29; x >= 0; x--) summary.position(x, 0, x < 10);
+        for (int z = 1; z <= 40; z++) summary.position(0, z, false);
+        // Teleport (respawn, portal) is not walked distance.
+        summary.position(1000, 1000, false);
+        summary.position(1000, 1001, false);
+        for (int i = 0; i < 25; i++) summary.switched("User Tasks", i % 2 == 0 ? "Unstuck Chain" : "User Tasks");
+
+        Map<String, Object> map = summary.toMap();
+        assertEquals(101.0, map.get("distanceWalked"));
+        assertEquals(1414.9, map.get("netDistance")); // ends at (1000, 1001)
+        assertEquals(0.5, map.get("waterSeconds")); // 10 ticks
+        assertTrue(summary.chatLines().get(2).endsWith("unstuck 13x"), summary.chatLines().get(2));
     }
 
     @Test

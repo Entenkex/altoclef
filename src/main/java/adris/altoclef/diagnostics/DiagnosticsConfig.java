@@ -26,6 +26,7 @@ public final class DiagnosticsConfig {
     public final Setting<Integer> thrashSwitches;
     public final Setting<Integer> thrashWindowSeconds;
     public final Setting<Boolean> summaryInChat;
+    public final Setting<Integer> inventorySnapshotSeconds;
 
     private DiagnosticsConfig(SettingsManager m) {
         decisionLog = Setting.bool(P + "decisionLog", true)
@@ -57,6 +58,8 @@ public final class DiagnosticsConfig {
                 .description("Thrashing = at least this many switches between the same two chains ...").register(m);
         thrashWindowSeconds = Setting.integer(P + "thrashWindowSeconds", 10).range(1, 600)
                 .description("... within this many seconds.").register(m);
+        inventorySnapshotSeconds = Setting.integer(P + "inventorySnapshotSeconds", 60).range(5, 3600)
+                .description("Decision log: write the whole inventory (with durability and what was thrown away) every this many seconds.").register(m);
         summaryInChat = Setting.bool(P + "summaryInChat", true)
                 .description("Show a short run summary in chat when a user task finishes or the player dies.").register(m);
     }
