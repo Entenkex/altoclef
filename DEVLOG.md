@@ -149,6 +149,20 @@ recipe put planks into two slots (not a valid button recipe) and counted 2 plank
 **Cause:** `RecipeManagerWrapper.values()` collects into a set, so the order of equal candidates in
 `RecipeRegistry.choose` changed between worlds. **Fix:** last tie-break is the alphabetical recipe id.
 
+### `@get bed` walked ~150 blocks with enough wool in the inventory
+**Cause:** `CollectBedTask` mined any bed the block scanner had ever seen before trying to craft one.
+**Fix:** only beds within 32 blocks, or any bed if there are not 3 wool of one colour in the inventory.
+
+### Stuck in the ocean trying to place a crafting table, ignoring the one on land
+**Symptom:** `@get bed` in water: "Failed to place, wandering timeout", the bot wandered further out; a crafting
+table the player put on land was never used.
+**Causes:** (1) `PlaceBlockNearbyTask` accepted water blocks as place spots (water is "replaceable") and fell back
+to random wandering; (2) `DoStuffInContainerTask` checked "keep on placing" before looking for existing
+containers, so once placing had started an existing table was never considered.
+**Fix:** skip spots with fluid; when in water without a dry spot (or after a failed place) go to land first with
+`GetOutOfWaterTask` and stay on it until on dry ground; "keep placing" only if no reachable container is cheaper.
+Bed crafted in 0.6 s on land. Swimming to land is still weak (see TODO, Misc).
+
 ## Known, not fixed yet
 
 - **2026-11-27:** `CraftingRecipeTracker` fills recipe slots linearly and ignores the recipe width, so narrow shaped

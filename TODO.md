@@ -102,7 +102,7 @@ Scope of this step: crafting + smelting (furnace, smoker, blast furnace, campfir
       "any variant" entries keep their `CraftWithMatching*` strategy but take recipe + same-material mask from
       the registry (`RegistryCrafting.matchingRecipe`, old grid only as last resort). `choose` ties are now
       alphabetical (game sends recipes in random order). Tested in-game 1.21.1: `@recipes check` 311/311,
-      glass, charcoal, wooden stairs, birch door, bed.
+      glass, charcoal, wooden stairs, birch door, bed (after the bed-mining fix below).
 - [ ] 2.4c Replace the `CraftWithMatching*` tasks with one "choose a variant" task (pick the variant output via
       `RecipeRegistry.choose` across all variants; collect-any-then-craft-majority strategy rebuilt on top);
       fits the shopping list planner (step 4).
@@ -248,6 +248,10 @@ otherwise the smallest throwaway block stack while keeping
 - [ ] Build as L2 tasks (compress, drop, store) on top of the slot tasks (see 3a).
 
 ## Misc
+- Water: getting to land is weak. Placing a crafting table/furnace no longer targets water spots, switches to
+  `GetOutOfWaterTask` when no dry spot is reachable, and an existing container is preferred over continued
+  placing (2026-11-28). But swimming to land itself (Baritone in open water, `GetOutOfWaterTask` vs.
+  `UnstuckChain` both escaping) still did not reach land within ~15 s in an ocean test.
 - Implement configs. (→ roadmap 1)
 - Allow any bed color when crafting beds from wool. (→ roadmap 2, "must match" groups)
 - Add cherry blossom wood as a valid wood type or something? It doesn't seem to work properly atm.
