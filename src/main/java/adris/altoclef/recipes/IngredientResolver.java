@@ -18,6 +18,9 @@ import java.util.Set;
  *     <li>the catalogue name with the most items that are all allowed (anything it collects fits)</li>
  *     <li>the first allowed single item that can be collected</li>
  * </ol>
+ * In steps 3 and 4, items that can only be collected in another dimension (e.g. blackstone: nether) come last, so
+ * a stone pickaxe doesn't send the bot to the nether (that made {@code @get iron_pickaxe} loop: nether portal →
+ * flint and steel → iron → stone pickaxe → blackstone → nether …).
  */
 public final class IngredientResolver {
 
@@ -40,14 +43,23 @@ public final class IngredientResolver {
 
     private final Map<String, Set<String>> catalogue;
     private final Set<String> obtainableItems;
+    private final Set<String> otherDimensionItems;
 
     /**
      * @param catalogue       catalogue name → item ids it collects (names with one item are fine too)
      * @param obtainableItems single items the catalogue can collect directly
      */
     public IngredientResolver(Map<String, Set<String>> catalogue, Set<String> obtainableItems) {
+        this(catalogue, obtainableItems, Set.of());
+    }
+
+    /**
+     * @param otherDimensionItems items whose catalogue entry only collects them outside the overworld
+     */
+    public IngredientResolver(Map<String, Set<String>> catalogue, Set<String> obtainableItems, Set<String> otherDimensionItems) {
         this.catalogue = new LinkedHashMap<>(catalogue);
         this.obtainableItems = new HashSet<>(obtainableItems);
+        this.otherDimensionItems = new HashSet<>(otherDimensionItems);
     }
 
     public Optional<Resolution> resolve(Ingredient ingredient) {
@@ -69,13 +81,22 @@ public final class IngredientResolver {
 
         String best = null;
         int bestSize = 0;
+        String bestFar = null;
+        int bestFarSize = 0;
         for (Map.Entry<String, Set<String>> entry : catalogue.entrySet()) {
             Set<String> collects = entry.getValue();
             if (collects.isEmpty()) continue;
             if (collects.equals(items)) return Optional.of(Resolution.catalogue(entry.getKey()));
-            if (collects.size() > 1 && items.containsAll(collects) && collects.size() > bestSize) {
-                best = entry.getKey();
-                bestSize = collects.size();
+            if (collects.size() > 1 && items.containsAll(collects)) {
+                if (otherDimensionItems.containsAll(collects)) {
+                    if (collects.size() > bestFarSize) {
+                        bestFar = entry.getKey();
+                        bestFarSize = collects.size();
+                    }
+                } else if (collects.size() > bestSize) {
+                    best = entry.getKey();
+                    bestSize = collects.size();
+                }
             }
         }
 
@@ -92,6 +113,10 @@ public final class IngredientResolver {
 
         if (best != null) return Optional.of(Resolution.catalogue(best));
 
+        for (String item : items) {
+            if (obtainableItems.contains(item) && !otherDimensionItems.contains(item)) return Optional.of(Resolution.single(item));
+        }
+        if (bestFar != null) return Optional.of(Resolution.catalogue(bestFar));
         for (String item : items) {
             if (obtainableItems.contains(item)) return Optional.of(Resolution.single(item));
         }

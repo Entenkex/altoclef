@@ -99,4 +99,46 @@ class IngredientResolverTest {
         assertEquals(Optional.of(IngredientResolver.Resolution.catalogue("planks")),
                 resolver().resolve(Ingredient.anyOf("#planks", ALL_PLANKS), Map.of("minecraft:birch_planks", 5)));
     }
+
+    @Test
+    void itemsOnlyInAnotherDimensionComeLast() {
+        // #stone_tool_materials: alphabetically blackstone comes first, but it is only collected in the nether.
+        Set<String> stone = Set.of("minecraft:blackstone", "minecraft:cobbled_deepslate", "minecraft:cobblestone");
+        Ingredient ingredient = Ingredient.anyOf("#minecraft:stone_tool_materials", stone);
+        Set<String> obtainable = Set.of("minecraft:blackstone", "minecraft:cobblestone");
+
+        IngredientResolver withoutDimensionInfo = new IngredientResolver(Map.of(), obtainable);
+        assertEquals(Optional.of(IngredientResolver.Resolution.single("minecraft:blackstone")),
+                withoutDimensionInfo.resolve(ingredient), "the old behaviour that caused the nether loop");
+
+        IngredientResolver resolver = new IngredientResolver(Map.of(), obtainable, Set.of("minecraft:blackstone"));
+        assertEquals(Optional.of(IngredientResolver.Resolution.single("minecraft:cobblestone")), resolver.resolve(ingredient));
+
+        // Only far alternatives: still resolvable.
+        IngredientResolver onlyFar = new IngredientResolver(Map.of(), Set.of("minecraft:blackstone"), Set.of("minecraft:blackstone"));
+        assertEquals(Optional.of(IngredientResolver.Resolution.single("minecraft:blackstone")), onlyFar.resolve(ingredient));
+        // Already in the inventory: used, wherever it comes from.
+        assertEquals(Optional.of(IngredientResolver.Resolution.single("minecraft:blackstone")),
+                resolver.resolve(ingredient, Map.of("minecraft:blackstone", 3)));
+    }
+
+    @Test
+    void exactCatalogueEntryForAnyStone() {
+        Set<String> stone = Set.of("minecraft:blackstone", "minecraft:cobbled_deepslate", "minecraft:cobblestone");
+        IngredientResolver resolver = new IngredientResolver(
+                Map.of("stone_tool_materials", stone, "blackstone", Set.of("minecraft:blackstone")),
+                Set.of("minecraft:blackstone", "minecraft:cobblestone"), Set.of("minecraft:blackstone"));
+        assertEquals(Optional.of(IngredientResolver.Resolution.catalogue("stone_tool_materials")),
+                resolver.resolve(Ingredient.anyOf("#minecraft:stone_tool_materials", stone)));
+    }
+
+    @Test
+    void catalogueSubsetOnlyInAnotherDimensionComesAfterSingleItems() {
+        Set<String> items = Set.of("minecraft:crimson_planks", "minecraft:warped_planks", "minecraft:oak_planks");
+        IngredientResolver resolver = new IngredientResolver(
+                Map.of("nether_planks", Set.of("minecraft:crimson_planks", "minecraft:warped_planks")),
+                Set.of("minecraft:oak_planks"), Set.of("minecraft:crimson_planks", "minecraft:warped_planks"));
+        assertEquals(Optional.of(IngredientResolver.Resolution.single("minecraft:oak_planks")),
+                resolver.resolve(Ingredient.anyOf("#planks", items)));
+    }
 }

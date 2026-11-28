@@ -56,6 +56,11 @@ public class TaskCatalogue {
             mine("dirt", MiningRequirement.HAND, new Block[]{Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.DIRT_PATH}, Items.DIRT);
             simple("cobblestone", Items.COBBLESTONE, CollectBlockByOneTask.CollectCobblestoneTask::new).dontMineIfPresent();
             simple("cobbled_deepslate", Items.COBBLED_DEEPSLATE, CollectBlockByOneTask.CollectCobbledDeepslateTask::new).dontMineIfPresent();
+            // Any stone for stone tools / furnaces (#stone_tool_materials, #stone_crafting_materials): mine whatever
+            // is closest, like "log". Without it the recipe picked blackstone and sent the bot to the nether.
+            mine("stone_tool_materials", MiningRequirement.WOOD,
+                    new Block[]{Blocks.STONE, Blocks.COBBLESTONE, Blocks.DEEPSLATE, Blocks.COBBLED_DEEPSLATE, Blocks.BLACKSTONE},
+                    Items.COBBLESTONE, Items.COBBLED_DEEPSLATE, Items.BLACKSTONE).anyDimension();
             mine("andesite", MiningRequirement.WOOD, Blocks.ANDESITE, Items.ANDESITE);
             mine("granite", MiningRequirement.WOOD, Blocks.GRANITE, Items.GRANITE);
             mine("diorite", MiningRequirement.WOOD, Blocks.DIORITE, Items.DIORITE);
@@ -682,6 +687,18 @@ public class TaskCatalogue {
         return Collections.unmodifiableSet(itemToResourceTask.keySet());
     }
 
+    /**
+     * Items whose catalogue entry only collects them outside the overworld (blackstone, netherrack, blaze rods, …).
+     * Recipes prefer other alternatives for these (see {@link adris.altoclef.recipes.IngredientResolver}).
+     */
+    public static Set<Item> itemsOnlyOutsideOverworld() {
+        Set<Item> result = new HashSet<>();
+        for (Map.Entry<Item, CataloguedResource> entry : itemToResourceTask.entrySet()) {
+            if (entry.getValue().forcesOtherDimensionThanOverworld()) result.add(entry.getKey());
+        }
+        return result;
+    }
+
     public static boolean isObtainable(Item item) {
         return resourcesObtainable.contains(item);
     }
@@ -935,6 +952,10 @@ public class TaskCatalogue {
         public CataloguedResource anyDimension() {
             _forceDimension = false;
             return this;
+        }
+
+        boolean forcesOtherDimensionThanOverworld() {
+            return _forceDimension && _targetDimension != Dimension.OVERWORLD;
         }
 
         public ResourceTask getResource(int count) {
