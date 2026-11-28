@@ -39,6 +39,7 @@ public class AltoClefCommands {
                 new SettingShortcutCommands.Reset(),
                 new SettingShortcutCommands.Toggle(),
                 new ProfileCommand(),
+                new RecipesCommand(),
                 new GamerCommand(),
                 new MarvionCommand(),
                 new DummyTaskCommand(),

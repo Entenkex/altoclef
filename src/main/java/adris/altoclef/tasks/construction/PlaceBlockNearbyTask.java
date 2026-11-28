@@ -6,6 +6,7 @@ import adris.altoclef.eventbus.EventBus;
 import adris.altoclef.eventbus.Subscription;
 import adris.altoclef.eventbus.events.BlockPlaceEvent;
 import adris.altoclef.multiversion.blockpos.BlockPosVer;
+import adris.altoclef.tasks.movement.GetOutOfWaterTask;
 import adris.altoclef.tasks.movement.TimeoutWanderTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.helpers.ItemHelper;
@@ -41,6 +42,8 @@ public class PlaceBlockNearbyTask extends Task {
 
     private final MovementProgressChecker progressChecker = new MovementProgressChecker();
     private final TimeoutWanderTask wander = new TimeoutWanderTask(5);
+    // In water there is often no spot to place: swim to land first instead of wandering around randomly.
+    private final GetOutOfWaterTask getOutOfWater = new GetOutOfWaterTask();
 
     private final TimerGame _randomlookTimer = new TimerGame(0.25);
     private final Predicate<BlockPos> _canPlaceHere;
@@ -119,14 +122,33 @@ public class PlaceBlockNearbyTask extends Task {
             }
         }
 
+        // Once we decided to leave the water, keep going until we stand on dry ground
+        // (otherwise the next tick finds a spot again and the escape stops after one tick).
+        if (getOutOfWater.isActive() && !getOutOfWater.isFinished()) {
+            setDebugState("Going to land before placing.");
+            progressChecker.reset();
+            return getOutOfWater;
+        }
+
         // Wander while we can.
         if (wander.isActive() && !wander.isFinished()) {
             setDebugState("Wandering, will try to place again later.");
             progressChecker.reset();
             return wander;
         }
+        boolean inWater = mod.getPlayer().isTouchingWater();
+
         // Fail check
         if (!progressChecker.check(mod)) {
+            if (inWater) {
+                Debug.logMessage("Failed placing in water, going to land first.");
+                if (tryPlace != null) {
+                    mod.getBlockScanner().requestBlockUnreachable(tryPlace);
+                    tryPlace = null;
+                }
+                progressChecker.reset();
+                return getOutOfWater;
+            }
             Debug.logMessage("Failed placing, wandering and trying again.");
             LookHelper.randomOrientation();
             if (tryPlace != null) {
@@ -139,6 +161,10 @@ public class PlaceBlockNearbyTask extends Task {
         // Try to place at a particular spot.
         if (tryPlace == null || !WorldHelper.canReach(tryPlace)) {
             tryPlace = locateClosePlacePos(mod);
+        }
+        if (tryPlace == null && inWater) {
+            setDebugState("No dry spot to place nearby, going to land first.");
+            return getOutOfWater;
         }
         if (tryPlace != null) {
             setDebugState("Trying to place at " + tryPlace);
@@ -264,6 +290,10 @@ public class PlaceBlockNearbyTask extends Task {
             }
             // We can't place here.
             if (!WorldHelper.canReach(blockPos) || !WorldHelper.canPlace(blockPos)) {
+                continue;
+            }
+            // Water counts as "replaceable", but placing into it from the water mostly fails.
+            if (!mod.getWorld().getFluidState(blockPos).isEmpty()) {
                 continue;
             }
             boolean hasBelow = WorldHelper.isSolidBlock(blockPos.down());

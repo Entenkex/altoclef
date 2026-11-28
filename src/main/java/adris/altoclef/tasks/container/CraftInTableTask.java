@@ -12,7 +12,7 @@ import adris.altoclef.tasks.slot.MoveInaccessibleItemToInventoryTask;
 import adris.altoclef.tasks.slot.ReceiveCraftingOutputSlotTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
-import adris.altoclef.util.JankCraftingRecipeMapping;
+import adris.altoclef.util.GameRecipeLookup;
 import adris.altoclef.util.RecipeTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import adris.altoclef.util.helpers.StorageHelper;
@@ -394,7 +394,7 @@ class DoCraftInTableTask extends DoStuffInContainerTask {
             }
 
             // Get the recipe to send based on the target recipe and output item
-            Optional<WrappedRecipeEntry> recipeToSend = JankCraftingRecipeMapping.getMinecraftMappedRecipe(target.getRecipe(), target.getOutputItem());
+            Optional<WrappedRecipeEntry> recipeToSend = GameRecipeLookup.find(target.getRecipe(), target.getOutputItem());
 
             // Get the client player entity
             ClientPlayerEntity player = MinecraftClient.getInstance().player;

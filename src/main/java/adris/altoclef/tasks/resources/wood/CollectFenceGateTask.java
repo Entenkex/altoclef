@@ -3,14 +3,19 @@ package adris.altoclef.tasks.resources.wood;
 import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasks.resources.CraftWithMatchingPlanksTask;
 import adris.altoclef.util.CraftingRecipe;
+import adris.altoclef.multiversion.versionedfields.Items;
 import adris.altoclef.util.ItemTarget;
+import adris.altoclef.util.RegistryCrafting;
 import adris.altoclef.util.helpers.ItemHelper;
 import net.minecraft.item.Item;
 
 public class CollectFenceGateTask extends CraftWithMatchingPlanksTask {
 
     public CollectFenceGateTask(Item[] targets, ItemTarget planks, int count) {
-        super(targets, woodItems -> woodItems.fenceGate, createRecipe(planks), new boolean[]{false, true, false, false, true, false, false, false, false}, count);
+        super(targets, woodItems -> woodItems.fenceGate,
+                // Recipe and "same material" slots from the recipe registry; the hand-written grid is only a last resort.
+                RegistryCrafting.matchingRecipe(Items.OAK_FENCE_GATE, Items.OAK_PLANKS, planks)
+                        .orElseGet(() -> new RegistryCrafting.MatchingRecipe(createRecipe(planks), new boolean[]{false, true, false, false, true, false, false, false, false})), count);
     }
 
     public CollectFenceGateTask(Item target, String plankCatalogueName, int count) {

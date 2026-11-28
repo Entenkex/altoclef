@@ -3,7 +3,9 @@ package adris.altoclef.tasks.resources.wood;
 import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasks.resources.CraftWithMatchingPlanksTask;
 import adris.altoclef.util.CraftingRecipe;
+import adris.altoclef.multiversion.versionedfields.Items;
 import adris.altoclef.util.ItemTarget;
+import adris.altoclef.util.RegistryCrafting;
 import adris.altoclef.util.helpers.ItemHelper;
 import net.minecraft.item.Item;
 
@@ -11,7 +13,10 @@ public class CollectSignTask extends CraftWithMatchingPlanksTask {
 
     public CollectSignTask(Item[] targets, ItemTarget planks, int count) {
         // Top 6 are planks, must be the same.
-        super(targets, woodItems -> woodItems.sign, createRecipe(planks), new boolean[]{true, true, true, true, true, true, false, false, false}, count);
+        super(targets, woodItems -> woodItems.sign,
+                // Recipe and "same material" slots from the recipe registry; the hand-written grid is only a last resort.
+                RegistryCrafting.matchingRecipe(Items.OAK_SIGN, Items.OAK_PLANKS, planks)
+                        .orElseGet(() -> new RegistryCrafting.MatchingRecipe(createRecipe(planks), new boolean[]{true, true, true, true, true, true, false, false, false})), count);
     }
 
     public CollectSignTask(Item target, String plankCatalogueName, int count) {

@@ -12,6 +12,10 @@ public abstract class CraftWithMatchingWoolTask extends CraftWithMatchingMateria
     private final Function<ItemHelper.ColorfulItems, Item> getMajorityMaterial;
     private final Function<ItemHelper.ColorfulItems, Item> getTargetItem;
 
+    public CraftWithMatchingWoolTask(ItemTarget target, Function<ItemHelper.ColorfulItems, Item> getMajorityMaterial, Function<ItemHelper.ColorfulItems, Item> getTargetItem, adris.altoclef.util.RegistryCrafting.MatchingRecipe recipe) {
+        this(target, getMajorityMaterial, getTargetItem, recipe.recipe(), recipe.sameMask());
+    }
+
     public CraftWithMatchingWoolTask(ItemTarget target, Function<ItemHelper.ColorfulItems, Item> getMajorityMaterial, Function<ItemHelper.ColorfulItems, Item> getTargetItem, CraftingRecipe recipe, boolean[] sameMask) {
         super(target, recipe, sameMask);
         this.getMajorityMaterial = getMajorityMaterial;

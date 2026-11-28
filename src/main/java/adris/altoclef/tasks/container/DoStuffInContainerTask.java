@@ -67,12 +67,6 @@ public abstract class DoStuffInContainerTask extends Task {
     @Override
     protected Task onTick() {
         AltoClef mod = AltoClef.getInstance();
-        // If we're placing, keep on placing.
-        if (mod.getItemStorage().hasItem(ItemHelper.blocksToItems(containerBlocks)) && placeTask.isActive() && !placeTask.isFinished()) {
-            setDebugState("Placing container");
-            return placeTask;
-        }
-
         if (isContainerOpen(mod)) {
             return containerSubTask(mod);
         }
@@ -101,6 +95,16 @@ public abstract class DoStuffInContainerTask extends Task {
         }
         if (nearest.isPresent()) {
             costToWalk = BaritoneHelper.calculateGenericHeuristic(currentPos, WorldHelper.toVec3d(nearest.get()));
+        }
+
+        // If we're placing, keep on placing - unless a reachable container is cheaper to walk to.
+        // (Before, this was checked first: once placing had started, an existing container was never considered,
+        // e.g. stuck in water trying to place while a crafting table stood on land.)
+        boolean existingIsCheaper = nearest.isPresent() && costToWalk <= getCostToMakeNew(mod);
+        if (!existingIsCheaper && mod.getItemStorage().hasItem(ItemHelper.blocksToItems(containerBlocks))
+                && placeTask.isActive() && !placeTask.isFinished()) {
+            setDebugState("Placing container");
+            return placeTask;
         }
 
         // Make a new container if going to the container is a pretty bad cost.

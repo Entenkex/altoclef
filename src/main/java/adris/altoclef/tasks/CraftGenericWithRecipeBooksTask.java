@@ -7,7 +7,7 @@ import adris.altoclef.tasks.slot.EnsureFreePlayerCraftingGridTask;
 import adris.altoclef.tasks.slot.ReceiveCraftingOutputSlotTask;
 import adris.altoclef.tasksystem.ITaskUsesCraftingGrid;
 import adris.altoclef.tasksystem.Task;
-import adris.altoclef.util.JankCraftingRecipeMapping;
+import adris.altoclef.util.GameRecipeLookup;
 import adris.altoclef.util.RecipeTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import adris.altoclef.util.helpers.StorageHelper;
@@ -134,7 +134,7 @@ public class CraftGenericWithRecipeBooksTask extends Task implements ITaskUsesCr
             }
         }
 
-        Optional<WrappedRecipeEntry> recipeToSend = JankCraftingRecipeMapping.getMinecraftMappedRecipe(target.getRecipe(), target.getOutputItem());
+        Optional<WrappedRecipeEntry> recipeToSend = GameRecipeLookup.find(target.getRecipe(), target.getOutputItem());
         if (recipeToSend.isPresent()) {
             if (mod.getSlotHandler().canDoSlotAction()) {
                 ClientPlayerEntity player = MinecraftClient.getInstance().player;

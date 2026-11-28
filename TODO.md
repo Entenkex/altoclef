@@ -73,18 +73,59 @@ fills slots linearly and ignores recipe width (narrow shaped recipes end up wron
 keeps only `items[0]` per ingredient (FIXME), skips special recipes.
 `JankCraftingRecipeMapping` rebuilds its map on every call.
 "Same material" constraints live in `CraftWith*Matching*Task` special classes.
-- [ ] Own recipe model modeled after vanilla: shaped (pattern + key) / shapeless,
-      ingredient = item | tag | catalogue name, output count, station
-      (inventory, crafting table, furnace/smoker/blast furnace, smithing table).
-- [ ] "Must match" groups (bed wool color, planks of one wood type).
-- [ ] Per-version parsers in `multiversion/` that turn the game's `RecipeManager`
-      into the unified format (recipe API changes across 1.16.5 – 1.21.x).
-- [ ] Build the recipe registry on world join (recipes are server-side);
-      hand-written recipes only as overrides/fallback.
-- [ ] Replace `CraftingRecipe` / `RecipeTarget` usages, drop `JankCraftingRecipeMapping`.
-- [ ] Later (once the format is stable): load recipes dynamically / from data files.
+Design and decisions: [`docs/recipe-model.md`](docs/recipe-model.md) (branch `feature/recipes`).
+Scope of this step: crafting + smelting (furnace, smoker, blast furnace, campfire).
+- [x] 2.1 Own recipe model in `adris.altoclef.recipes` (Minecraft-free, item ids as strings):
+      `Recipe`, `RecipeShape` (shaped with width/height + `toGrid`, shapeless, cooking), `Ingredient`
+      (alternatives, tag label), `Station`, `RecipeRegistry` (game recipes win, fallback otherwise,
+      `choose` replaces the "must match" tasks), `VanillaRecipeParser` (vanilla JSON, old and new
+      spellings), `TagResolver` (game tags / local tag file). 20 unit tests.
+- [x] 2.2 `GameRecipeImporter` (`multiversion/recipemanager/`, all 12 versions via preprocessor remapping),
+      `RecipeRegistryTracker` (fallback at start, game recipes on world join, cleared on leave),
+      792 fallback recipes + 21 tags in `assets/altoclef/recipes/` (generated from vanilla 1.21.1 by
+      `scripts/gen_fallback_recipes.py`), `@recipes [item|compare]`. In-game 1.21.1: 999 imported,
+      291 skipped; compare found 9 wrong hand-written recipes (see DEVLOG).
+- [x] 2.3 `CraftingRecipeTracker` now built from the registry via `util/LegacyRecipeAdapter` (real shapes,
+      all items per slot, fallback recipes); recipe book uses `util/GameRecipeLookup` (registry match →
+      recipe by id) → `JankCraftingRecipeMapping` removed; `CraftInInventoryTask` falls back to manual
+      crafting when no game recipe is found; `CraftingHelper` copies stacks. Tested in-game 1.21.1
+      (crafting table, wooden pickaxe, sticks, slabs, stairs with and without recipe book).
+      Also fixed three old bugs in manual crafting (`CraftGenericManuallyTask`): grid cleared by the
+      parent resource task, per-slot amount ignored items already owned, wrong "material left" check.
+- [x] 2.4a `TaskCatalogue` crafted entries (`shapedRecipe*` helpers, wooden buttons) take their recipe from
+      the registry (`util/RegistryCrafting`): `RecipeRegistry.choose` with a "can collect all ingredients"
+      filter (`recipes/IngredientResolver`: ingredient → catalogue name or single item) and main-recipe
+      tie-break. `@recipes check`: 284/284 entries have a usable recipe (suspicious stew via a hand-written
+      fallback recipe). Fixes the 9 wrong hand-written recipes and the button count (was always 1).
+- [x] 2.4b Smelting entries (`smelt(...)`) from the registry (`RegistryCrafting.smeltTask`, furnace);
+      concrete wood/colour variants (`oak_stairs`, `red_bed`, ...) crafted from the registry; the generic
+      "any variant" entries keep their `CraftWithMatching*` strategy but take recipe + same-material mask from
+      the registry (`RegistryCrafting.matchingRecipe`, old grid only as last resort). `choose` ties are now
+      alphabetical (game sends recipes in random order). Tested in-game 1.21.1: `@recipes check` 311/311,
+      glass, charcoal, wooden stairs, birch door, bed (after the bed-mining fix below).
+- [ ] 2.4c Replace the `CraftWithMatching*` tasks with one "choose a variant" task (pick the variant output via
+      `RecipeRegistry.choose` across all variants; collect-any-then-craft-majority strategy rebuilt on top);
+      fits the shopping list planner (step 4).
+- [x] 2.5a Catalogue cleanup: all recipe entries are one line, `crafted(name, item)` / `smelted(name, item)`;
+      the old `shapedRecipe*`/`smelt` helpers with hand-written grids are gone (`tools`/`armor` too).
+- [ ] 2.5b Remove the backwards adapters between the new recipe model and the old crafting code. They only
+      exist so the old tasks keep working; they go away when the crafting tasks are rebuilt in step 3
+      (and the variant tasks in 2.4c / step 4):
+  - `util/LegacyRecipeAdapter` (new `Recipe` → old `CraftingRecipe` grid of `ItemTarget`s)
+  - the legacy parts of `util/RegistryCrafting` (building `CraftingRecipe`/`RecipeTarget`, `MatchingRecipe`)
+  - `util/GameRecipeLookup` (old grid → game recipe id via `RecipeComparison`; tasks should carry the recipe id)
+  - `trackers/CraftingRecipeTracker` (old lookup interface, used by `CraftingHelper`, `BeatMinecraftTask`)
+  - `util/CraftingRecipe`, `util/RecipeTarget` and their ~40 users (`Craft*Task`, squasher, `Collect*Task`)
+  - the last-resort grids (`createRecipe` + masks) in the `Collect*` variant tasks and `CollectBedTask`,
+    and the `CraftWithMatching*` tasks themselves (2.4c)
+- [ ] Later: smithing, stonecutter; reading data packs (1.21.2+ clients get no recipes from the server).
+- [ ] Later: prefer recipe variants by their result's usefulness, not only by what is in the inventory
+      (e.g. suspicious stew: the flower decides the effect — regeneration/saturation instead of poison or
+      blindness; dyes/colours, wood types). Needs a value per variant, ties in with item values (step 7).
 
 ### 3. Task architecture: layers, strategies, priorities (together with 5)
+Includes removing the recipe backwards adapters (2.5b): crafting/smelting tasks work directly on
+`recipes.Recipe` (grid via `RecipeShape.Shaped.toGrid`, recipe id for the recipe book).
 
 #### 3a. Task layers
 Today: ~180 task classes sorted by topic (`slot/`, `movement/`, `container/`,
@@ -218,7 +259,24 @@ otherwise the smallest throwaway block stack while keeping
 - [ ] Replace `throwawayItems` / `UselessItems` / `getGarbageSlot` with this system.
 - [ ] Build as L2 tasks (compress, drop, store) on top of the slot tasks (see 3a).
 
+### 8. World memory (per world / server)
+Today: knowledge about a world lives in task fields and is lost when the game is closed, e.g. in
+`BeatMinecraftTask` (portal and stronghold positions, bed spawn) and the home base setting.
+- [ ] One file per world/server (`altoclef/worlds/<id>.yml`, same YAML infrastructure as step 1); id from the
+      singleplayer save name or the server address (+ dimension where needed).
+- [ ] Stored: world spawn, own spawn point / bed, nether + end portal locations (both sides), stronghold /
+      end portal room, last death point (+ what was lost), home base, other places worth remembering.
+- [ ] Speedrun state (`BeatMinecraftTask` variables) read from / written to it, so a run can continue after
+      a restart.
+- [ ] Loaded on world join, saved on change and on leave; in-game command to show / edit / clear entries.
+- [ ] Not part of the shareable settings profiles (personal / per world, like the butler lists).
+
 ## Misc
+- Water: getting to land is weak. Placing a crafting table/furnace no longer targets water spots, switches to
+  `GetOutOfWaterTask` when no dry spot is reachable, and an existing container is preferred over continued
+  placing (2026-11-28). But swimming to land itself (Baritone in open water, `GetOutOfWaterTask` vs.
+  `UnstuckChain` both escaping) still did not reach land within ~15 s in an ocean test.
+  Idea for later: use Tungsten as a second pathfinder (e.g. for water/swimming) next to Baritone.
 - Implement configs. (→ roadmap 1)
 - Allow any bed color when crafting beds from wool. (→ roadmap 2, "must match" groups)
 - Add cherry blossom wood as a valid wood type or something? It doesn't seem to work properly atm.
