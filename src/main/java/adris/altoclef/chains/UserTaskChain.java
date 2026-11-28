@@ -86,6 +86,7 @@ public class UserTaskChain extends SingleTaskChain {
         }
         mod.getTaskRunner().enable();
         taskStopwatch.begin();
+        adris.altoclef.diagnostics.Diagnostics.userTaskStarted(task, runningIdleTask);
         setTask(task);
 
         if (mod.getModSettings().failedToLoad()) {
@@ -96,6 +97,8 @@ public class UserTaskChain extends SingleTaskChain {
 
     @Override
     protected void onTaskFinish(AltoClef mod) {
+        // Remember the task before disabling the runner: disable() stops all chains, which clears mainTask.
+        Task oldTask = mainTask;
         boolean shouldIdle = mod.getModSettings().shouldRunIdleCommandWhenNotActive();
         if (!shouldIdle) {
             // Stop.
@@ -104,7 +107,6 @@ public class UserTaskChain extends SingleTaskChain {
             mod.getClientBaritone().getInputOverrideHandler().clearAllKeys();
         }
         double seconds = taskStopwatch.time();
-        Task oldTask = mainTask;
         mainTask = null;
         if (currentOnFinish != null) {
             currentOnFinish.run();

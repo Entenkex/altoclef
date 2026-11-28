@@ -14,6 +14,21 @@ Open findings that are known but not fixed yet are listed at the end.
 
 ---
 
+## 2026-11-28
+
+### `@get iron_pickaxe` crashed the game (stack overflow) after ~90 s
+**Found:** First in-game test of the decision log (`feature/decision-log`): the session log showed ~2000
+`task_start` lines and the same ~15 tasks 134 times nested; ticks dropped to 8/s, then `Task.stop` overflowed
+the stack while unwinding the tree.
+**Cause:** Planning loop: iron pickaxe → iron → furnace → raw iron needs STONE → stone pickaxe →
+`#stone_tool_materials` resolved to **blackstone** (alphabetically first, `IngredientResolver` step 4) →
+blackstone is nether-only → nether portal → flint and steel → iron → … Present since the catalogue uses the
+recipe registry (`feature/recipes`).
+**Fix:** `IngredientResolver` puts items that can only be collected outside the overworld last
+(`TaskCatalogue.itemsOnlyOutsideOverworld`); new catalogue entry `stone_tool_materials` (mine the closest of
+stone / cobblestone / deepslate / blackstone, any dimension) matches the tag exactly. The decision log now reports
+repeated task path segments as `task_loop` (warning + dump), so loops show up at once instead of as a crash.
+
 ## 2026-11-27
 
 ### Settings warnings repeated after every change

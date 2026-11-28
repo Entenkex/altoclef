@@ -142,6 +142,20 @@ for every version. Keep them to pure logic that works without a running Minecraf
 
 Reports: `versions/<version>/build/reports/tests/test/index.html`.
 
+## Decision log and flight recorder
+
+`adris.altoclef.diagnostics` writes `altoclef/logs/<session>.jsonl` (in `versions/<version>/run/` for `runClient`)
+and dumps on death / thrashing / `@dump`. The task system reports to it through `tasksystem.TaskSystemListener`
+(chain priorities per tick, task start/stop/interrupt), so the task code doesn't depend on the log.
+The pure parts (`DecisionLog`, `FlightRecorder`, `ThrashDetector`, `DumpLimiter`, `RunSummary`, `LogDirectory`)
+are unit tested. Read a log or dump with:
+
+```bash
+python3 scripts/decision_timeline.py versions/1.21.1/run/altoclef/logs/<session>.jsonl --no-tasks
+```
+
+Design: [docs/task-architecture.md](docs/task-architecture.md) section 2.6.
+
 ## Memory
 
 The project `gradle.properties` allows the Gradle daemon 8 GB heap and parallel builds. On machines with
