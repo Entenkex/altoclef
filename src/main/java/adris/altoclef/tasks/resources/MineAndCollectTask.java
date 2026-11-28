@@ -191,11 +191,37 @@ public class MineAndCollectTask extends ResourceTask {
                 return closestDrop.getRight().map(Object.class::cast);
             }
 
-            if (dropSq <= blockSq) {
+            // dropSq has +10 from getClosestItemDrop (kept for other callers); use real distances here.
+            double dropDistance = closestDrop.getRight().map(drop -> Math.sqrt(drop.squaredDistanceTo(pos))).orElse(Double.POSITIVE_INFINITY);
+            double blockDistance = Math.sqrt(blockSq);
+            if (adris.altoclef.util.DropOrMine.preferDrop(dropDistance, blockDistance, dropsNearby(mod, pos), stillNeeded(mod))) {
                 return closestDrop.getRight().map(Object.class::cast);
             } else {
                 return closestBlock.getRight().map(Object.class::cast);
             }
+        }
+
+        /**
+         * Matching, reachable items lying within {@link adris.altoclef.util.DropOrMine#ENOUGH_ON_GROUND_RANGE}.
+         */
+        private int dropsNearby(AltoClef mod, Vec3d pos) {
+            double rangeSq = adris.altoclef.util.DropOrMine.ENOUGH_ON_GROUND_RANGE * adris.altoclef.util.DropOrMine.ENOUGH_ON_GROUND_RANGE;
+            int count = 0;
+            for (ItemEntity drop : mod.getEntityTracker().getDroppedItems()) {
+                if (!isValid(mod, drop) || !mod.getEntityTracker().isEntityReachable(drop)) continue;
+                if (drop.squaredDistanceTo(pos) > rangeSq) continue;
+                count += drop.getStack().getCount();
+            }
+            return count;
+        }
+
+        private int stillNeeded(AltoClef mod) {
+            int needed = 0;
+            if (_targets == null) return 0;
+            for (ItemTarget target : _targets) {
+                needed += Math.max(0, target.getTargetCount() - mod.getItemStorage().getItemCount(target));
+            }
+            return needed;
         }
 
         public static Pair<Double, Optional<ItemEntity>> getClosestItemDrop(AltoClef mod,Vec3d pos, ItemTarget... items) {
