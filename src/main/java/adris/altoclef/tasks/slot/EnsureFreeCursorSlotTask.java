@@ -39,7 +39,8 @@ public class EnsureFreeCursorSlotTask extends Task {
                     // Pick up garbage so we throw it out next frame
                     setDebugState("Picking up garbage");
                     mod.getSlotHandler().clickSlot(garbage.get(), 0, SlotActionType.PICKUP);
-                } else {
+                } else if (!cursor.isDamageable()) {
+                    // Last resort only for items we can lose: tools, weapons, armor stay in the cursor.
                     mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
                 }
             }

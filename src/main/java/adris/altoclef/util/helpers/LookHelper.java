@@ -448,10 +448,12 @@ public interface LookHelper {
 
                 // Find the garbage slot and move the cursor stack to it
                 Optional<Slot> garbage = StorageHelper.getGarbageSlot(mod);
-                garbage.ifPresent(slot -> mod.getSlotHandler().clickSlot(slot, 0, SlotActionType.PICKUP));
-
-                // Move the cursor stack to an undefined slot
-                mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+                // Swap the cursor stack with a garbage slot, then throw the garbage. Without a garbage slot keep
+                // the cursor stack: before, the click below threw it away whatever it was (lost swords, 2026-11-28).
+                if (garbage.isPresent()) {
+                    mod.getSlotHandler().clickSlot(garbage.get(), 0, SlotActionType.PICKUP);
+                    mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+                }
             } else {
                 // Close the screen if the cursor stack is empty
                 StorageHelper.closeScreen();

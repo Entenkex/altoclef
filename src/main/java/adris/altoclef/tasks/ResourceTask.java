@@ -121,7 +121,8 @@ public abstract class ResourceTask extends Task implements ITaskCanForce {
                 mod.getSlotHandler().clickSlot(garbage.get(), 0, SlotActionType.PICKUP);
                 return null;
             }
-            mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+            // No room and nothing to throw out: keep the item we just collected in the cursor
+            // (before, the target itself was thrown away here).
             return null;
         }
 

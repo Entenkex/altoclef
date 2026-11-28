@@ -61,8 +61,12 @@ public abstract class AbstractDoToEntityTask extends Task implements ITaskRequir
             }
             Optional<Slot> garbage = StorageHelper.getGarbageSlot(mod);
             // Try throwing away cursor slot if it's garbage
-            garbage.ifPresent(slot -> mod.getSlotHandler().clickSlot(slot, 0, SlotActionType.PICKUP));
-            mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+            // Swap the cursor stack with a garbage slot, then throw the garbage. Without a garbage slot keep
+            // the cursor stack: before, the click below threw it away whatever it was (lost swords, 2026-11-28).
+            if (garbage.isPresent()) {
+                mod.getSlotHandler().clickSlot(garbage.get(), 0, SlotActionType.PICKUP);
+                mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+            }
         } else {
             StorageHelper.closeScreen();
         } // Kinda duct tape but it should be future proof ish

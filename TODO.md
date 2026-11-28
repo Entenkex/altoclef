@@ -274,6 +274,10 @@ otherwise the smallest throwaway block stack while keeping
 - [ ] Idea: use storage to keep more – shulker boxes, barrels, ender chest
       (store low-priority valuables instead of dropping them).
 - [ ] Replace `throwawayItems` / `UselessItems` / `getGarbageSlot` with this system.
+- [ ] Move the speedrun's own throw-away rules (`BeatMinecraftTask.throwAwayItems`: worse pickaxes/swords, gravel,
+      sand, torches, `UselessItems`) into the general inventory management. Today they throw items while standing
+      still, Minecraft picks them up again after 2 s and they are thrown again (wooden pickaxe 7× in a row in
+      baseline run 3). Only drop when the inventory is (nearly) full, and not where the bot keeps standing.
 - [ ] Build as L2 tasks (compress, drop, store) on top of the slot tasks (see 3a).
 
 ### 8. World memory (per world / server)

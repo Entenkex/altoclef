@@ -72,6 +72,8 @@ public final class Diagnostics implements TaskSystemListener {
     private final Map<String, Integer> droppedSinceSnapshot = new TreeMap<>();
     /** Item id → tick of the bot's last drop of it. */
     private final Map<String, Long> lastBotDrop = new HashMap<>();
+    private String lastDropBlockedKey;
+    private long lastDropBlockedTick;
     private int lastCheckedPathSize;
     private int loopEndsAt = -1;
 
@@ -134,6 +136,26 @@ public final class Diagnostics implements TaskSystemListener {
             fields.put("path", currentPath());
             instance.event("item_drop", "Bot dropped " + id, fields);
         }
+    }
+
+    /**
+     * The bot wanted to throw away {@code stack} (a tool, weapon or armor piece with nothing as good left in the
+     * inventory) and {@code SlotHandler} refused. {@code caller} names the code that tried, so the culprit is found.
+     */
+    public static void itemDropBlocked(ItemStack stack, String caller) {
+        if (instance == null || instance.log == null || stack == null || stack.isEmpty()) return;
+        if (!instance.config.logEvents.get()) return;
+        String id = MinecraftItemIds.id(stack.getItem());
+        // A clean-up that keeps retrying would log every tick: once per item and caller every 10 s is enough.
+        String key = id + "@" + caller;
+        if (key.equals(instance.lastDropBlockedKey) && instance.tick - instance.lastDropBlockedTick < 200) return;
+        instance.lastDropBlockedKey = key;
+        instance.lastDropBlockedTick = instance.tick;
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("item", id);
+        fields.put("caller", caller);
+        fields.put("path", currentPath());
+        instance.event("item_drop_blocked", "Kept " + id + " (drop by " + caller + ")", fields);
     }
 
     /**

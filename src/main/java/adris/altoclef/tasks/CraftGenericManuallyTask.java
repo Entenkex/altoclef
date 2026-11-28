@@ -67,7 +67,10 @@ public class CraftGenericManuallyTask extends Task implements ITaskUsesCraftingG
                     mod.getSlotHandler().clickSlot(garbage.get(), 0, SlotActionType.PICKUP);
                     return null;
                 }
-                mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+                // Last resort only for items we can lose: tools, weapons, armor stay in the cursor (lost swords, 2026-11-28).
+                if (!StorageHelper.getItemStackInCursorSlot().isDamageable()) {
+                    mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+                }
             } else {
                 StorageHelper.closeScreen();
             }

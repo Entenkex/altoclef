@@ -231,7 +231,7 @@ public class StorageHelper {
 
         for (Slot slot : PlayerSlot.getCurrentScreenSlots()) {
             ItemStack stack = StorageHelper.getItemStackInSlot(slot);
-            if (!ItemHelper.canThrowAwayStack(mod, stack))
+            if (!ItemHelper.canThrowAwayWorseTool(mod, stack))
                 continue;
 
             Item item = stack.getItem();

@@ -224,14 +224,13 @@ public class DestroyBlockTask extends Task implements ITaskRequiresGrounded {
             Optional<Slot> garbage = StorageHelper.getGarbageSlot(mod);
             Debug.logInternal("Garbage slot: " + garbage);
 
-            garbage.ifPresent(slot -> {
-                mod.getSlotHandler().clickSlot(slot, 0, SlotActionType.PICKUP);
-                Debug.logInternal("Clicked slot: " + slot);
-            });
-
-            // Click on an undefined slot to drop the item.
-            mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
-            Debug.logInternal("Clicked undefined slot");
+            // Swap the cursor stack with a garbage slot, then throw the garbage. Without a garbage slot keep the
+            // cursor stack: before, the click below threw it away whatever it was (lost swords, 2026-11-28).
+            if (garbage.isPresent()) {
+                mod.getSlotHandler().clickSlot(garbage.get(), 0, SlotActionType.PICKUP);
+                mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+                Debug.logInternal("Threw away garbage slot " + garbage.get());
+            }
         } else {
             // If the cursor stack is empty, close the screen.
             StorageHelper.closeScreen();

@@ -115,9 +115,12 @@ public class CraftGenericWithRecipeBooksTask extends Task implements ITaskUsesCr
             }
             // Find the garbage slot and click it to move the item there
             garbage = StorageHelper.getGarbageSlot(mod);
-            garbage.ifPresent(slot -> mod.getSlotHandler().clickSlot(slot, 0, SlotActionType.PICKUP));
-            // Click an undefined slot to clear the cursor stack
-            mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+            // Swap the cursor stack with a garbage slot, then throw the garbage. Without a garbage slot keep
+            // the cursor stack: before, the click below threw it away whatever it was (lost swords, 2026-11-28).
+            if (garbage.isPresent()) {
+                mod.getSlotHandler().clickSlot(garbage.get(), 0, SlotActionType.PICKUP);
+                mod.getSlotHandler().clickSlot(Slot.UNDEFINED, 0, SlotActionType.PICKUP);
+            }
             return null;
         }
 
