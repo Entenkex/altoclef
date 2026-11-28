@@ -4,9 +4,8 @@ import adris.altoclef.AltoClef;
 import adris.altoclef.Debug;
 import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasksystem.Task;
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.util.ItemTarget;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.helpers.StorageHelper;
 import net.minecraft.item.Item;
 import org.apache.commons.lang3.ArrayUtils;
@@ -17,11 +16,11 @@ import java.util.HashMap;
 // Collects everything that's catalogued for a recipe.
 public class CollectRecipeCataloguedResourcesTask extends Task {
 
-    private final RecipeTarget[] _targets;
+    private final CraftTarget[] _targets;
     private final boolean _ignoreUncataloguedSlots;
     private boolean _finished = false;
 
-    public CollectRecipeCataloguedResourcesTask(boolean ignoreUncataloguedSlots, RecipeTarget... targets) {
+    public CollectRecipeCataloguedResourcesTask(boolean ignoreUncataloguedSlots, CraftTarget... targets) {
         _targets = targets;
         _ignoreUncataloguedSlots = ignoreUncataloguedSlots;
     }
@@ -40,7 +39,7 @@ public class CollectRecipeCataloguedResourcesTask extends Task {
         HashMap<String, Integer> catalogueCount = new HashMap<>();
         HashMap<Item, Integer> itemCount = new HashMap<>();
 
-        for (RecipeTarget target : _targets) {
+        for (CraftTarget target : _targets) {
             // Ignore this recipe if we have its item.
             //if (mod.getItemStorage().targetMet(target.getItem())) continue;
 
@@ -50,12 +49,12 @@ public class CollectRecipeCataloguedResourcesTask extends Task {
             int weNeed = target.getTargetCount() - mod.getItemStorage().getItemCount(target.getOutputItem());
 
             if (weNeed > 0) {
-                CraftingRecipe recipe = target.getRecipe();
+                CraftTarget recipe = target;
                 // Default, just go through the recipe slots and collect the first one.
                 for (int i = 0; i < recipe.getSlotCount(); ++i) {
                     ItemTarget slot = recipe.getSlot(i);
                     if (slot == null || slot.isEmpty()) continue;
-                    int numberOfRepeats = (int) Math.floor(-0.1 + (double) weNeed / target.getRecipe().outputCount()) + 1;
+                    int numberOfRepeats = (int) Math.floor(-0.1 + (double) weNeed / target.outputCount()) + 1;
                     if (!slot.isCatalogueItem()) {
                         if (slot.getMatches().length != 1) {
                             if (!_ignoreUncataloguedSlots) {

@@ -39,7 +39,7 @@ public class CollectGoldNuggetsTask extends ResourceTask {
                 int potentialNuggies = mod.getItemStorage().getItemCount(Items.GOLD_NUGGET) + mod.getItemStorage().getItemCount(Items.GOLD_INGOT) * 9;
                 if (potentialNuggies >= count && mod.getItemStorage().hasItem(Items.GOLD_INGOT)) {
                     // Craft gold ingots to nuggets
-                    return new CraftInInventoryTask(new RecipeTarget(Items.GOLD_NUGGET, count, CraftingRecipe.newShapedRecipe("golden_nuggets", new ItemTarget[]{new ItemTarget(Items.GOLD_INGOT, 1), null, null, null}, 9)));
+                    return RegistryCrafting.craftTaskUsing(Items.GOLD_NUGGET, count, Items.GOLD_INGOT);
                 }
                 // Get gold ingots
                 int nuggiesStillNeeded = count - potentialNuggies;

@@ -18,7 +18,7 @@ import adris.altoclef.tasks.ResourceTask;
 import adris.altoclef.tasks.container.CraftInTableTask;
 import adris.altoclef.trackers.RecipeRegistryTracker;
 import adris.altoclef.util.ItemTarget;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.RegistryCrafting;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
@@ -155,18 +155,18 @@ public class RecipesCommand extends Command {
                 .append("# name -> recipe used (with an empty inventory) and how each slot is collected\n\n");
         for (Map.Entry<String, Item> entry : crafted.entrySet()) {
             ResourceTask task = RegistryCrafting.craftTask(entry.getValue(), 1);
-            RecipeTarget target = null;
-            if (task instanceof CraftInInventoryTask inventory) target = inventory.getRecipeTarget();
-            else if (task instanceof CraftInTableTask table && table.getRecipeTargets().length > 0) target = table.getRecipeTargets()[0];
+            CraftTarget target = null;
+            if (task instanceof CraftInInventoryTask inventory) target = inventory.getCraftTarget();
+            else if (task instanceof CraftInTableTask table && table.getCraftTargets().length > 0) target = table.getCraftTargets()[0];
             if (target == null) {
                 missing.add(entry.getKey());
                 report.append("MISSING  ").append(entry.getKey()).append('\n');
                 continue;
             }
-            report.append("ok       ").append(entry.getKey()).append(" x").append(target.getRecipe().outputCount())
+            report.append("ok       ").append(entry.getKey()).append(" x").append(target.outputCount())
                     .append(task instanceof CraftInTableTask ? " (table)" : " (inventory)").append('\n');
             List<String> slots = new ArrayList<>();
-            for (ItemTarget slot : target.getRecipe().getSlots()) {
+            for (ItemTarget slot : target.getSlots()) {
                 if (slot == null || slot.isEmpty()) slots.add("-");
                 else if (slot.isCatalogueItem()) slots.add("\"" + slot.getCatalogueName() + "\"");
                 else slots.add(Registries.ITEM.getId(slot.getMatches()[0]).getPath());

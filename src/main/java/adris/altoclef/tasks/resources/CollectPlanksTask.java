@@ -41,17 +41,6 @@ public class CollectPlanksTask extends ResourceTask {
         this(plank, ItemHelper.planksToLog(plank), count);
     }
 
-    private static CraftingRecipe generatePlankRecipe(Item[] logs) {
-        return CraftingRecipe.newShapedRecipe(
-                "planks",
-                new Item[][]{
-                        logs, null,
-                        null, null
-                },
-                4
-        );
-    }
-
     @Override
     protected double getPickupRange(AltoClef mod) {
         ItemStorageTracker storage = mod.getItemStorage();
@@ -88,7 +77,7 @@ public class CollectPlanksTask extends ResourceTask {
                     int otherPlankCount = totalInventoryPlankCount - plankCount;
                     int targetTotalPlanks = Math.min(count * 4 + plankCount, _targetCount - otherPlankCount);
                     setDebugState("We have " + logCheck + ", crafting " + targetTotalPlanks + " planks.");
-                    return new CraftInInventoryTask(new RecipeTarget(plankCheck, targetTotalPlanks, generatePlankRecipe(_logs)));
+                    return RegistryCrafting.craftTaskUsing(plankCheck, targetTotalPlanks, logCheck);
                 }
             }
         }

@@ -5,7 +5,7 @@ import adris.altoclef.tasks.resources.CollectRecipeCataloguedResourcesTask;
 import adris.altoclef.tasks.slot.ReceiveCraftingOutputSlotTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.slots.PlayerSlot;
@@ -22,19 +22,19 @@ import java.util.Optional;
  */
 public class CraftInInventoryTask extends ResourceTask {
 
-    private final RecipeTarget _target;
+    private final CraftTarget _target;
     private final boolean _collect;
     private final boolean _ignoreUncataloguedSlots;
     private boolean _fullCheckFailed = false;
 
-    public CraftInInventoryTask(RecipeTarget target, boolean collect, boolean ignoreUncataloguedSlots) {
+    public CraftInInventoryTask(CraftTarget target, boolean collect, boolean ignoreUncataloguedSlots) {
         super(new ItemTarget(target.getOutputItem(), target.getTargetCount()));
         _target = target;
         _collect = collect;
         _ignoreUncataloguedSlots = ignoreUncataloguedSlots;
     }
 
-    public CraftInInventoryTask(RecipeTarget target) {
+    public CraftInInventoryTask(CraftTarget target) {
         this(target, true, false);
     }
 
@@ -92,7 +92,7 @@ public class CraftInInventoryTask extends ResourceTask {
         // Recipe book only if the game's recipe was found and is unlocked, otherwise craft by hand
         // (before, the recipe book task waited forever when no recipe matched).
         if (mod.getModSettings().shouldUseCraftingBookToCraft()) {
-            var recipeToSend = adris.altoclef.util.GameRecipeLookup.find(_target.getRecipe(), _target.getOutputItem());
+            var recipeToSend = _target.gameRecipe();
             var player = net.minecraft.client.MinecraftClient.getInstance().player;
             if (recipeToSend.isPresent() && player != null && player.getRecipeBook().contains(recipeToSend.get().id())) {
                 return new CraftGenericWithRecipeBooksTask(_target);
@@ -154,7 +154,7 @@ public class CraftInInventoryTask extends ResourceTask {
         return true;
     }
 
-    public RecipeTarget getRecipeTarget() {
+    public CraftTarget getCraftTarget() {
         return _target;
     }
 }

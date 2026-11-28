@@ -32,8 +32,7 @@ public class CollectDripstoneBlockTask extends ResourceTask {
     protected Task onResourceTick(AltoClef mod) {
         if (mod.getItemStorage().getItemCount(Items.POINTED_DRIPSTONE) >= 4) {
             int target = mod.getItemStorage().getItemCount(Items.DRIPSTONE_BLOCK) + 1;
-            ItemTarget s = new ItemTarget(Items.POINTED_DRIPSTONE, 1);
-            return new CraftInInventoryTask(new RecipeTarget(Items.DRIPSTONE_BLOCK, target, CraftingRecipe.newShapedRecipe("dri", new ItemTarget[]{s, s, s, s}, 1)));
+            return RegistryCrafting.craftTaskUsing(Items.DRIPSTONE_BLOCK, target, Items.POINTED_DRIPSTONE);
         }
         return new MineAndCollectTask(new ItemTarget(Items.DRIPSTONE_BLOCK, Items.POINTED_DRIPSTONE), new Block[]{Blocks.DRIPSTONE_BLOCK, Blocks.POINTED_DRIPSTONE}, MiningRequirement.WOOD).forceDimension(Dimension.OVERWORLD);
     }

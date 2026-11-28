@@ -3,36 +3,44 @@ package adris.altoclef.tasks.resources;
 import adris.altoclef.AltoClef;
 import adris.altoclef.Debug;
 import adris.altoclef.TaskCatalogue;
-import adris.altoclef.tasks.CraftInInventoryTask;
 import adris.altoclef.tasks.ResourceTask;
-import adris.altoclef.tasks.container.CraftInTableTask;
 import adris.altoclef.tasksystem.Task;
-import adris.altoclef.util.CraftingRecipe;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.ItemTarget;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.RegistryCrafting;
 import net.minecraft.item.Item;
 
+/**
+ * "Any bed / any stairs": collect any of the variants' material (any wool, any planks), then craft the variant
+ * we have most material for. The recipe of one representative variant (from the registry) tells how much of the
+ * "same" material one craft needs; the actual craft uses the registry recipe of the chosen variant.
+ */
 public abstract class CraftWithMatchingMaterialsTask extends ResourceTask {
 
     private final ItemTarget target;
-    private final CraftingRecipe recipe;
-    private final boolean[] sameMask;
+    private final CraftTarget recipe;
 
     private final ItemTarget sameResourceTarget;
     private final int sameResourceRequiredCount;
     private final int sameResourcePerRecipe;
 
-    public CraftWithMatchingMaterialsTask(ItemTarget target, CraftingRecipe recipe, boolean[] sameMask) {
+    /**
+     * @param matching representative recipe + "same material" mask; null if the registry has none (the task then
+     *                 does nothing and warns)
+     */
+    public CraftWithMatchingMaterialsTask(ItemTarget target, RegistryCrafting.MatchingRecipe matching) {
         super(target);
         this.target = target;
-        this.recipe = recipe;
-        this.sameMask = sameMask;
+        this.recipe = matching == null ? null : matching.recipe();
+        boolean[] sameMask = matching == null ? new boolean[0] : matching.sameMask();
         int sameResourceRequiredCount = 0;
         ItemTarget sameResourceTarget = null;
-        if (recipe.getSlotCount() != sameMask.length) {
+        if (recipe == null) {
+            sameResourceTarget = null;
+        } else if (recipe.getSlotCount() != sameMask.length) {
             Debug.logError("Invalid CraftWithMatchingMaterialsTask constructor parameters: Recipe size must equal \"sameMask\" size.");
         }
-        for (int i = 0; i < recipe.getSlotCount(); ++i) {
+        for (int i = 0; recipe != null && i < recipe.getSlotCount(); ++i) {
             if (sameMask[i]) {
                 sameResourceRequiredCount++;
                 sameResourceTarget = recipe.getSlot(i);
@@ -41,21 +49,10 @@ public abstract class CraftWithMatchingMaterialsTask extends ResourceTask {
         this.sameResourceTarget = sameResourceTarget;
 
         // cant this be just replaced with `Math.ceil((double) target.getTargetCount() / recipe.outputCount())` ?
-        int craftsNeeded = (int) (1 + Math.floor((double) target.getTargetCount() / recipe.outputCount() - 0.001));
+        int outputPerCraft = recipe == null ? 1 : recipe.outputCount();
+        int craftsNeeded = (int) (1 + Math.floor((double) target.getTargetCount() / outputPerCraft - 0.001));
         sameResourcePerRecipe = sameResourceRequiredCount;
         this.sameResourceRequiredCount = sameResourceRequiredCount * craftsNeeded;
-    }
-
-    private static CraftingRecipe generateSameRecipe(CraftingRecipe diverseRecipe, Item sameItem, boolean[] sameMask) {
-        ItemTarget[] result = new ItemTarget[diverseRecipe.getSlotCount()];
-        for (int i = 0; i < result.length; ++i) {
-            if (sameMask[i]) {
-                result[i] = new ItemTarget(sameItem, 1);
-            } else {
-                result[i] = diverseRecipe.getSlot(i);
-            }
-        }
-        return CraftingRecipe.newShapedRecipe(result, diverseRecipe.outputCount());
     }
 
     @Override
@@ -65,6 +62,10 @@ public abstract class CraftWithMatchingMaterialsTask extends ResourceTask {
 
     @Override
     protected Task onResourceTick(AltoClef mod) {
+        if (recipe == null || sameResourceTarget == null) {
+            setDebugState("No recipe for " + target + " in this version");
+            return null;
+        }
 
         /*
          * 0) Figure out the "same resource" item target
@@ -110,15 +111,15 @@ public abstract class CraftWithMatchingMaterialsTask extends ResourceTask {
                 return getSpecificSameResourceTask(mod, sameResourceTarget.getMatches());
             }
 
-            CraftingRecipe sameRecipe = generateSameRecipe(recipe, majorityCraftItem, sameMask);
             int toCraftTotal = majorityCraftCount;
             toCraftTotal = Math.min(toCraftTotal, target.getTargetCount());
             Item output = getSpecificItemCorrespondingToMajorityResource(majorityCraftItem);
 
             toCraftTotal = Math.min(target.getTargetCount(),toCraftTotal+mod.getItemStorage().getItemCount(output));
 
-            RecipeTarget recipeTarget = new RecipeTarget(output, toCraftTotal, sameRecipe);
-            return recipe.isBig() ? new CraftInTableTask(recipeTarget) : new CraftInInventoryTask(recipeTarget);
+            // The chosen variant's own recipe (e.g. birch stairs from birch planks), so the recipe book crafts it.
+            return RegistryCrafting.craftTarget(output, toCraftTotal, RegistryCrafting.uses(majorityCraftItem))
+                    .map(RegistryCrafting::craftTask).orElse(null);
         }
         // Collect SAME resources first!!!
         return getAllSameResourcesTask(mod);

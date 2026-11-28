@@ -1,6 +1,7 @@
 package adris.altoclef.tasks.resources;
 
 import adris.altoclef.AltoClef;
+import adris.altoclef.util.RegistryCrafting;
 import adris.altoclef.Debug;
 import adris.altoclef.TaskCatalogue;
 import adris.altoclef.multiversion.item.ItemVer;
@@ -12,9 +13,8 @@ import adris.altoclef.tasks.container.SmeltInSmokerTask;
 import adris.altoclef.tasks.movement.PickupDroppedItemTask;
 import adris.altoclef.tasks.movement.TimeoutWanderTask;
 import adris.altoclef.tasksystem.Task;
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.util.ItemTarget;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.helpers.WorldHelper;
 import adris.altoclef.util.slots.Slot;
@@ -180,16 +180,15 @@ public class CollectFoodTask extends Task {
             // Convert Hay+Wheat -> Bread
             if (mod.getItemStorage().getItemCount(Items.WHEAT) >= 3) {
                 setDebugState("Crafting Bread");
-                Item[] w = new Item[]{Items.WHEAT};
-                Item[] o = null;
-                // jank
-                currentResourceTask = new CraftInTableTask(new RecipeTarget(Items.BREAD, 99999999, CraftingRecipe.newShapedRecipe("bread", new Item[][]{w, w, w, o, o, o, o, o, o}, 1)), false, false);
+                // "Craft as many as possible": don't collect, just use the wheat we have.
+                currentResourceTask = RegistryCrafting.craftTarget(Items.BREAD, 99999999, RegistryCrafting.uses(Items.WHEAT))
+                        .map(t -> RegistryCrafting.craftTask(t, false, false)).orElse(null);
                 return currentResourceTask;
             }
             if (mod.getItemStorage().getItemCount(Items.HAY_BLOCK) >= 1) {
                 setDebugState("Crafting Wheat");
-                Item[] o = null;
-                currentResourceTask = new CraftInInventoryTask(new RecipeTarget(Items.WHEAT, 99999999, CraftingRecipe.newShapedRecipe("wheat", new Item[][]{new Item[]{Items.HAY_BLOCK}, o, o, o}, 9)), false, false);
+                currentResourceTask = RegistryCrafting.craftTarget(Items.WHEAT, 99999999, RegistryCrafting.uses(Items.HAY_BLOCK))
+                        .map(t -> RegistryCrafting.craftTask(t, false, false)).orElse(null);
                 return currentResourceTask;
             }
             // Convert raw foods -> cooked foods

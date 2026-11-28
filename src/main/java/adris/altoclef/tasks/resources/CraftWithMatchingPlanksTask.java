@@ -5,7 +5,6 @@ import adris.altoclef.Debug;
 import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasks.ResourceTask;
 import adris.altoclef.tasksystem.Task;
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import net.minecraft.item.Item;
@@ -17,12 +16,8 @@ public class CraftWithMatchingPlanksTask extends CraftWithMatchingMaterialsTask 
     private final ItemTarget _visualTarget;
     private final Function<ItemHelper.WoodItems, Item> _getTargetItem;
 
-    public CraftWithMatchingPlanksTask(Item[] validTargets, Function<ItemHelper.WoodItems, Item> getTargetItem, adris.altoclef.util.RegistryCrafting.MatchingRecipe recipe, int count) {
-        this(validTargets, getTargetItem, recipe.recipe(), recipe.sameMask(), count);
-    }
-
-    public CraftWithMatchingPlanksTask(Item[] validTargets, Function<ItemHelper.WoodItems, Item> getTargetItem, CraftingRecipe recipe, boolean[] sameMask, int count) {
-        super(new ItemTarget(validTargets, count), recipe, sameMask);
+    public CraftWithMatchingPlanksTask(Item[] validTargets, Function<ItemHelper.WoodItems, Item> getTargetItem, adris.altoclef.util.RegistryCrafting.MatchingRecipe recipe /* null: no recipe in this version */, int count) {
+        super(new ItemTarget(validTargets, count), recipe);
         _getTargetItem = getTargetItem;
         _visualTarget = new ItemTarget(validTargets, count);
     }
@@ -40,7 +35,7 @@ public class CraftWithMatchingPlanksTask extends CraftWithMatchingMaterialsTask 
             Item log = ItemHelper.planksToLog(plankToGet);
             // Convert logs to planks
             if (mod.getItemStorage().getItemCount(log) >= 1) {
-                return TaskCatalogue.getItemTask(plankToGet, 1);//new CraftInInventoryTask(new ItemTarget(plankToGet, 1), CraftingRecipe.newShapedRecipe("planks", new ItemTarget[]{new ItemTarget(log, 1), empty, empty, empty}, 4), false, true);
+                return TaskCatalogue.getItemTask(plankToGet, 1);
             }
         }
         Debug.logError("CraftWithMatchingPlanks: Should never happen!");

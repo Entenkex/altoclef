@@ -2,7 +2,6 @@ package adris.altoclef.tasks.resources.wood;
 
 import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasks.resources.CraftWithMatchingPlanksTask;
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.multiversion.versionedfields.Items;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.RegistryCrafting;
@@ -13,9 +12,9 @@ public class CollectWoodenTrapDoorTask extends CraftWithMatchingPlanksTask {
 
     public CollectWoodenTrapDoorTask(Item[] targets, ItemTarget planks, int count) {
         super(targets, woodItems -> woodItems.trapdoor,
-                // Recipe and "same material" slots from the recipe registry; the hand-written grid is only a last resort.
+                // Recipe and "same material" slots from the recipe registry.
                 RegistryCrafting.matchingRecipe(Items.OAK_TRAPDOOR, Items.OAK_PLANKS, planks)
-                        .orElseGet(() -> new RegistryCrafting.MatchingRecipe(createRecipe(planks), new boolean[]{true, true, true, true, true, true, false, false, false})), count);
+                        .orElse(null), count);
     }
 
     public CollectWoodenTrapDoorTask(Item target, String plankCatalogueName, int count) {
@@ -26,9 +25,4 @@ public class CollectWoodenTrapDoorTask extends CraftWithMatchingPlanksTask {
         this(ItemHelper.WOOD_TRAPDOOR, TaskCatalogue.getItemTarget("planks", 1), count);
     }
 
-    private static CraftingRecipe createRecipe(ItemTarget planks) {
-        ItemTarget p = planks;
-        ItemTarget o = null;
-        return CraftingRecipe.newShapedRecipe(new ItemTarget[]{p, p, p, p, p, p, o, o, o}, 2);
-    }
 }

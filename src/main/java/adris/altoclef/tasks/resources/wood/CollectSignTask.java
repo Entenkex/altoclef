@@ -2,7 +2,6 @@ package adris.altoclef.tasks.resources.wood;
 
 import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasks.resources.CraftWithMatchingPlanksTask;
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.multiversion.versionedfields.Items;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.RegistryCrafting;
@@ -14,9 +13,9 @@ public class CollectSignTask extends CraftWithMatchingPlanksTask {
     public CollectSignTask(Item[] targets, ItemTarget planks, int count) {
         // Top 6 are planks, must be the same.
         super(targets, woodItems -> woodItems.sign,
-                // Recipe and "same material" slots from the recipe registry; the hand-written grid is only a last resort.
+                // Recipe and "same material" slots from the recipe registry.
                 RegistryCrafting.matchingRecipe(Items.OAK_SIGN, Items.OAK_PLANKS, planks)
-                        .orElseGet(() -> new RegistryCrafting.MatchingRecipe(createRecipe(planks), new boolean[]{true, true, true, true, true, true, false, false, false})), count);
+                        .orElse(null), count);
     }
 
     public CollectSignTask(Item target, String plankCatalogueName, int count) {
@@ -28,9 +27,4 @@ public class CollectSignTask extends CraftWithMatchingPlanksTask {
     }
 
 
-    private static CraftingRecipe createRecipe(ItemTarget planks) {
-        ItemTarget p = planks;
-        ItemTarget stick = TaskCatalogue.getItemTarget("stick", 1);
-        return CraftingRecipe.newShapedRecipe(new ItemTarget[]{p, p, p, p, p, p, null, stick, null}, 3);
-    }
 }

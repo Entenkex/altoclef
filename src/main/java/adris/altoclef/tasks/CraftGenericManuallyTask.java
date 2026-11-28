@@ -6,7 +6,7 @@ import adris.altoclef.tasks.slot.ReceiveCraftingOutputSlotTask;
 import adris.altoclef.tasksystem.ITaskUsesCraftingGrid;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.slots.CraftingTableSlot;
@@ -30,9 +30,9 @@ import java.util.Optional;
  */
 public class CraftGenericManuallyTask extends Task implements ITaskUsesCraftingGrid {
 
-    private final RecipeTarget target;
+    private final CraftTarget target;
 
-    public CraftGenericManuallyTask(RecipeTarget target) {
+    public CraftGenericManuallyTask(CraftTarget target) {
         this.target = target;
     }
 
@@ -84,15 +84,15 @@ public class CraftGenericManuallyTask extends Task implements ITaskUsesCraftingG
         // (before, 8 wanted with 4 present asked for material for 8 and got stuck after 4).
         int alreadyHave = mod.getItemStorage().getItemCount(target.getOutputItem());
         int stillNeeded = Math.max(1, target.getTargetCount() - alreadyHave);
-        int requiredPerSlot = (int) Math.ceil((double) stillNeeded / target.getRecipe().outputCount());
+        int requiredPerSlot = (int) Math.ceil((double) stillNeeded / target.outputCount());
 
         // For each slot in table
-        for (int craftSlot = 0; craftSlot < target.getRecipe().getSlotCount(); ++craftSlot) {
-            ItemTarget toFill = target.getRecipe().getSlot(craftSlot);
+        for (int craftSlot = 0; craftSlot < target.getSlotCount(); ++craftSlot) {
+            ItemTarget toFill = target.getSlot(craftSlot);
             Slot currentCraftSlot;
             if (bigCrafting) {
                 // Craft in table
-                currentCraftSlot = CraftingTableSlot.getInputSlot(craftSlot, target.getRecipe().isBig());
+                currentCraftSlot = CraftingTableSlot.getInputSlot(craftSlot, target.isBig());
             } else {
                 // Craft in window
                 currentCraftSlot = PlayerSlot.getCraftInputSlot(craftSlot);

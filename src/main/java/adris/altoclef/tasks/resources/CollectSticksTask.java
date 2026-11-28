@@ -1,14 +1,14 @@
 package adris.altoclef.tasks.resources;
 
 import adris.altoclef.AltoClef;
+import adris.altoclef.util.RegistryCrafting;
 import adris.altoclef.tasks.CraftInInventoryTask;
 import adris.altoclef.tasks.ResourceTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.trackers.storage.ItemStorageTracker;
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.MiningRequirement;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
@@ -48,7 +48,7 @@ public class CollectSticksTask extends ResourceTask {
     protected Task onResourceTick(AltoClef mod) {
         // try to craft sticks from bamboo
         if (mod.getItemStorage().getItemCount(Items.BAMBOO) >= 2) {
-            return new CraftInInventoryTask(new RecipeTarget(Items.STICK, Math.min(mod.getItemStorage().getItemCount(Items.BAMBOO)/2,_targetCount), CraftingRecipe.newShapedRecipe("sticks", new ItemTarget[]{new ItemTarget("bamboo"), null, new ItemTarget("bamboo"), null}, 1)));
+            return RegistryCrafting.craftTaskUsing(Items.STICK, Math.min(mod.getItemStorage().getItemCount(Items.BAMBOO) / 2, _targetCount), Items.BAMBOO);
         }
 
         Optional<BlockPos> nearestBush = mod.getBlockScanner().getNearestBlock(Blocks.DEAD_BUSH);
@@ -60,7 +60,7 @@ public class CollectSticksTask extends ResourceTask {
             return task;
         }
         // else craft from wood
-        return new CraftInInventoryTask(new RecipeTarget(Items.STICK, _targetCount, CraftingRecipe.newShapedRecipe("sticks", new ItemTarget[]{new ItemTarget("planks"), null, new ItemTarget("planks"), null}, 4)));
+        return RegistryCrafting.craftTaskUsing(Items.STICK, _targetCount, Items.OAK_PLANKS);
     }
 
     @Override
