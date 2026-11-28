@@ -124,8 +124,10 @@ Scope of this step: crafting + smelting (furnace, smoker, blast furnace, campfir
       blindness; dyes/colours, wood types). Needs a value per variant, ties in with item values (step 7).
 
 ### 3. Task architecture: layers, strategies, priorities (together with 5)
-Includes removing the recipe backwards adapters (2.5b): crafting/smelting tasks work directly on
-`recipes.Recipe` (grid via `RecipeShape.Shaped.toGrid`, recipe id for the recipe book).
+Design draft: [`docs/task-architecture.md`](docs/task-architecture.md) (branch `feature/task-architecture`).
+Removing the recipe backwards adapters (2.5b) is split: the mechanical part (crafting/smelting tasks work directly on
+`recipes.Recipe`, grid via `RecipeShape.Shaped.toGrid`, recipe id for the recipe book) comes first on its own branch
+`feature/recipe-cleanup`; the variant tasks (2.4c) and recipe book vs. manual come with the strategies.
 
 #### 3a. Task layers
 Today: ~180 task classes sorted by topic (`slot/`, `movement/`, `container/`,
@@ -143,7 +145,8 @@ of if-cascades + scoring), `CraftInTableTask`.
   - **L3 Goals:** obtain item X, satisfy mining requirement, get gear,
         go to dimension (`resources/*`, `SatisfyMiningRequirementTask`, `DefaultGoToDimensionTask`).
   - **L4 Plans:** `@get` planner (shopping list, see 4), `BeatMinecraftTask`, survival behaviour.
-- [ ] Mark the layer explicitly (package per layer and/or annotation/interface), check it in tests.
+- [ ] Mark the layer explicitly with `@TaskLayer` (topic packages stay), checked by a source-scan unit test
+      (report first, hard failure once clean; see `docs/task-architecture.md` 2.5).
 - [ ] Tasks stay small: one responsibility, composed of lower-layer tasks;
       no copy-pasted inventory/movement logic inside higher tasks.
 - [ ] Replace hard-coded values in tasks with parameters / settings (see 1).
@@ -172,14 +175,22 @@ Today: `Task` has one `sub` and no priority. Priorities exist only on chains and
 inside `BeatMinecraftTask` (`PriorityTask` wrappers + `*PriorityCalculator`,
 hard-coded numbers 100–25000). Thrashing is patched with `changedTaskTimer`,
 `forcedTaskTimer`, A→B→A detection (`taskChanges`) and pickup special cases.
-- [ ] Priority as a first-class part of `Task`.
-- [ ] Children inherit the parent's priority; effective priority =
-      parent priority combined with the child's own local modifier.
+- [ ] ~~Priority as a first-class part of `Task`; children inherit the parent's priority.~~
+      Decided otherwise: priority only on sources and strategies; tasks pass **hints** along the active path
+      (see `docs/task-architecture.md` 2.3a).
 - [ ] Per-task priority calculators that depend on progress
       (for `ResourceTask`: have / needed; other tasks define their own measure).
 - [ ] Built-in hysteresis / commitment instead of the timer hacks
       (only switch when the new task is clearly higher).
 - [ ] Port `BeatMinecraftTask`'s gather list onto the new model and shrink the class.
+
+#### 3d. Exploration (own branch, right after the logging step)
+Today `TimeoutWanderTask` (38 uses) runs Baritone explore around a fixed origin: swims across oceans, runs back and
+forth, never covers distance, the infinite variant never ends.
+- [ ] `MoveAwayTask` (get away from a bad spot, land only), `TravelExploreTask` (keep a heading, avoid water,
+      purpose/biome bias, budget → failure), `LoadChunksAroundTask` (tactical chunk loading only).
+- [ ] Exploration memory (visited regions, current heading) in shared bot state; later persisted with the world file.
+- Design: `docs/task-architecture.md` 2.7.
 
 ### 4. Resource shopping list
 Today: on-demand recursion. `CollectRecipeCataloguedResourcesTask` recomputes one
