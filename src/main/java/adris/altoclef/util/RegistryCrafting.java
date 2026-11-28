@@ -21,11 +21,11 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
- * Crafting tasks for catalogue entries, built from the recipe registry (game recipes, local fallback otherwise)
- * instead of hand-written grids. Each ingredient is mapped to something the catalogue can collect
- * ({@link IngredientResolver}).
+ * Crafting / smelting tasks built from the recipe registry (game recipes, local fallback otherwise) instead of
+ * hand-written grids. Each ingredient is mapped to something the catalogue can collect ({@link IngredientResolver}).
  */
 public final class RegistryCrafting {
 
@@ -38,27 +38,76 @@ public final class RegistryCrafting {
      * @return a craft task for {@code count} of {@code output}, or null if no recipe can be used
      */
     public static ResourceTask craftTask(Item output, int count) {
+        return craftTarget(output, count).map(RegistryCrafting::craftTask).orElse(null);
+    }
+
+    /**
+     * Crafting table task if the recipe needs the 3x3 grid, inventory task otherwise.
+     */
+    public static ResourceTask craftTask(CraftTarget target) {
+        return craftTask(target, true, false);
+    }
+
+    /**
+     * @param collect                  collect missing ingredients first
+     * @param ignoreUncataloguedSlots  don't warn about ingredients the catalogue can't collect
+     */
+    public static ResourceTask craftTask(CraftTarget target, boolean collect, boolean ignoreUncataloguedSlots) {
+        return target.isBig()
+                ? new CraftInTableTask(target, collect, ignoreUncataloguedSlots)
+                : new CraftInInventoryTask(target, collect, ignoreUncataloguedSlots);
+    }
+
+    /**
+     * A craft task for {@code count} of {@code output} with a recipe that uses one of {@code ingredients}
+     * (e.g. gold ingot from nuggets, not from a gold block).
+     *
+     * @return null (and a warning) if there is no such recipe
+     */
+    public static ResourceTask craftTaskUsing(Item output, int count, Item... ingredients) {
+        return craftTarget(output, count, uses(ingredients)).map(RegistryCrafting::craftTask).orElse(null);
+    }
+
+    /**
+     * Accepts recipes with at least one ingredient that allows one of {@code items}.
+     */
+    public static Predicate<Recipe> uses(Item... items) {
+        Set<String> ids = new HashSet<>();
+        for (Item item : items) ids.add(MinecraftItemIds.id(item));
+        return recipe -> recipe.shape().ingredients().stream().anyMatch(i -> ids.stream().anyMatch(i::matches));
+    }
+
+    /**
+     * The recipe for {@code count} of {@code output}, ingredients mapped to what the catalogue can collect
+     * (the inventory decides between alternatives).
+     *
+     * @return empty (and a warning) if no crafting recipe can be used
+     */
+    public static Optional<CraftTarget> craftTarget(Item output, int count) {
+        return craftTarget(output, count, r -> true);
+    }
+
+    /**
+     * Like {@link #craftTarget(Item, int)}, only among the recipes {@code filter} accepts (e.g. sticks from bamboo).
+     */
+    public static Optional<CraftTarget> craftTarget(Item output, int count, Predicate<Recipe> filter) {
         AltoClef mod = AltoClef.getInstance();
         RecipeRegistry registry = mod.getRecipeRegistryTracker().getRegistry();
         IngredientResolver resolver = resolver();
-        String outputId = LegacyRecipeAdapter.id(output);
-
+        String outputId = MinecraftItemIds.id(output);
         Map<String, Integer> inventory = inventory(mod);
         Optional<Recipe> chosen = registry.choose(outputId, inventory,
-                r -> r.station() == Station.CRAFTING && resolver.canCollectAll(r));
+                r -> r.station() == Station.CRAFTING && resolver.canCollectAll(r) && filter.test(r));
         if (chosen.isEmpty()) {
             Debug.logWarning("No usable crafting recipe for " + outputId);
-            return null;
+            return Optional.empty();
         }
-        Recipe recipe = chosen.get();
-        Optional<CraftingRecipe> legacy = LegacyRecipeAdapter.toLegacy(recipe,
+        Optional<CraftTarget> target = CraftTarget.of(chosen.get(), count,
                 ingredient -> resolver.resolve(ingredient, inventory).flatMap(RegistryCrafting::toItemTarget));
-        if (legacy.isEmpty()) {
-            Debug.logWarning("Recipe " + recipe.id() + " uses items that do not exist in this version");
-            return null;
+        if (target.isEmpty()) {
+            Debug.logWarning("Recipe " + chosen.get().id() + " uses items that do not exist in this version");
         }
-        RecipeTarget target = new RecipeTarget(output, count, legacy.get());
-        return recipe.fitsInventory() ? new CraftInInventoryTask(target) : new CraftInTableTask(target);
+        return target;
     }
 
     /**
@@ -69,9 +118,8 @@ public final class RegistryCrafting {
         AltoClef mod = AltoClef.getInstance();
         RecipeRegistry registry = mod.getRecipeRegistryTracker().getRegistry();
         IngredientResolver resolver = resolver();
-        String outputId = LegacyRecipeAdapter.id(output);
+        String outputId = MinecraftItemIds.id(output);
         Map<String, Integer> inventory = inventory(mod);
-
         Optional<Recipe> chosen = registry.choose(outputId, inventory,
                 r -> r.station() == Station.FURNACE && resolver.canCollectAll(r));
         if (chosen.isEmpty()) {
@@ -102,33 +150,36 @@ public final class RegistryCrafting {
         if (mod == null || mod.getRecipeRegistryTracker() == null) return Optional.empty();
         RecipeRegistry registry = mod.getRecipeRegistryTracker().getRegistry();
         IngredientResolver resolver = resolver();
-        String materialId = LegacyRecipeAdapter.id(sameMaterial);
-
-        Optional<Recipe> recipe = registry.choose(LegacyRecipeAdapter.id(representative), Map.of(),
+        String materialId = MinecraftItemIds.id(sameMaterial);
+        Optional<Recipe> recipe = registry.choose(MinecraftItemIds.id(representative), Map.of(),
                 r -> r.station() == Station.CRAFTING
                         && r.shape().ingredients().stream().anyMatch(i -> i.matches(materialId)));
         if (recipe.isEmpty()) return Optional.empty();
-        Optional<CraftingRecipe> legacy = LegacyRecipeAdapter.toLegacy(recipe.get(), ingredient -> ingredient.matches(materialId)
+        Optional<CraftTarget> target = CraftTarget.of(recipe.get(), 1, ingredient -> ingredient.matches(materialId)
                 ? Optional.of(family)
                 : resolver.resolve(ingredient).flatMap(RegistryCrafting::toItemTarget));
-        if (legacy.isEmpty()) return Optional.empty();
-        boolean[] mask = new boolean[legacy.get().getSlotCount()];
-        for (int i = 0; i < mask.length; i++) mask[i] = legacy.get().getSlot(i) == family;
-        return Optional.of(new MatchingRecipe(legacy.get(), mask));
+        if (target.isEmpty()) return Optional.empty();
+        boolean[] mask = new boolean[target.get().getSlotCount()];
+        for (int i = 0; i < mask.length; i++) mask[i] = target.get().getSlot(i) == family;
+        return Optional.of(new MatchingRecipe(target.get(), mask));
     }
 
-    public record MatchingRecipe(CraftingRecipe recipe, boolean[] sameMask) {
+    /**
+     * @param recipe   with target count 1; the CraftWithMatching* tasks set their own count
+     * @param sameMask grid cells that must all hold the same item
+     */
+    public record MatchingRecipe(CraftTarget recipe, boolean[] sameMask) {
     }
 
     private static Optional<ItemTarget> toItemTarget(IngredientResolver.Resolution resolution) {
         if (resolution.isCatalogue()) return Optional.of(new ItemTarget(resolution.catalogueName(), 1));
-        return LegacyRecipeAdapter.item(resolution.item()).map(item -> new ItemTarget(item, 1));
+        return MinecraftItemIds.item(resolution.item()).map(item -> new ItemTarget(item, 1));
     }
 
     private static Map<String, Integer> inventory(AltoClef mod) {
         Map<String, Integer> counts = new HashMap<>();
         for (ItemStack stack : mod.getItemStorage().getItemStacksPlayerInventory(true)) {
-            if (!stack.isEmpty()) counts.merge(LegacyRecipeAdapter.id(stack.getItem()), stack.getCount(), Integer::sum);
+            if (!stack.isEmpty()) counts.merge(MinecraftItemIds.id(stack.getItem()), stack.getCount(), Integer::sum);
         }
         return counts;
     }
@@ -141,13 +192,13 @@ public final class RegistryCrafting {
             Map<String, Set<String>> catalogue = new LinkedHashMap<>();
             for (Map.Entry<String, Item[]> entry : TaskCatalogue.catalogueEntries().entrySet()) {
                 Set<String> ids = new LinkedHashSet<>();
-                for (Item item : entry.getValue()) ids.add(LegacyRecipeAdapter.id(item));
+                for (Item item : entry.getValue()) ids.add(MinecraftItemIds.id(item));
                 catalogue.put(entry.getKey(), ids);
             }
             Set<String> obtainable = new HashSet<>();
-            for (Item item : TaskCatalogue.directlyObtainableItems()) obtainable.add(LegacyRecipeAdapter.id(item));
+            for (Item item : TaskCatalogue.directlyObtainableItems()) obtainable.add(MinecraftItemIds.id(item));
             Set<String> otherDimension = new HashSet<>();
-            for (Item item : TaskCatalogue.itemsOnlyOutsideOverworld()) otherDimension.add(LegacyRecipeAdapter.id(item));
+            for (Item item : TaskCatalogue.itemsOnlyOutsideOverworld()) otherDimension.add(MinecraftItemIds.id(item));
             resolver = new IngredientResolver(catalogue, obtainable, otherDimension);
         }
         return resolver;

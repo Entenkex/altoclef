@@ -45,11 +45,7 @@ public class CollectGoldIngotTask extends ResourceTask {
             int nuggs = mod.getItemStorage().getItemCount(Items.GOLD_NUGGET);
             int nuggs_needed = count * 9 - mod.getItemStorage().getItemCount(Items.GOLD_INGOT) * 9;
             if (nuggs >= nuggs_needed) {
-                ItemTarget n = new ItemTarget(Items.GOLD_NUGGET);
-                CraftingRecipe recipe = CraftingRecipe.newShapedRecipe("gold_ingot", new ItemTarget[]{
-                        n, n, n, n, n, n, n, n, n
-                }, 1);
-                return new CraftInTableTask(new RecipeTarget(Items.GOLD_INGOT, count, recipe));
+                return RegistryCrafting.craftTaskUsing(Items.GOLD_INGOT, count, Items.GOLD_NUGGET);
             }
             // Mine nuggets
             return new MineAndCollectTask(new ItemTarget(Items.GOLD_NUGGET, count * 9), new Block[]{Blocks.NETHER_GOLD_ORE}, MiningRequirement.WOOD);

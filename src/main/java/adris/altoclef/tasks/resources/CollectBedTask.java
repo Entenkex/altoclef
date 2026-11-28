@@ -4,7 +4,6 @@ import adris.altoclef.AltoClef;
 import adris.altoclef.TaskCatalogue;
 import adris.altoclef.tasks.ResourceTask;
 import adris.altoclef.tasksystem.Task;
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.multiversion.versionedfields.Items;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.RegistryCrafting;
@@ -26,10 +25,10 @@ public class CollectBedTask extends CraftWithMatchingWoolTask {
 
     public CollectBedTask(Item[] beds, ItemTarget wool, int count) {
         // Top 3 are wool, must be the same.
-        // Recipe and "same wool" slots from the recipe registry; the hand-written grid is only a last resort.
+        // Recipe and "same wool" slots from the recipe registry.
         super(new ItemTarget(beds, count), colorfulItems -> colorfulItems.wool, colorfulItems -> colorfulItems.bed,
                 RegistryCrafting.matchingRecipe(Items.WHITE_BED, Items.WHITE_WOOL, wool)
-                        .orElseGet(() -> new RegistryCrafting.MatchingRecipe(createBedRecipe(wool), new boolean[]{true, true, true, false, false, false, false, false, false})));
+                        .orElse(null));
         visualBedTarget = new ItemTarget(beds, count);
     }
 
@@ -41,11 +40,6 @@ public class CollectBedTask extends CraftWithMatchingWoolTask {
         this(ItemHelper.BED, TaskCatalogue.getItemTarget("wool", 1), count);
     }
 
-    private static CraftingRecipe createBedRecipe(ItemTarget wool) {
-        ItemTarget w = wool;
-        ItemTarget p = TaskCatalogue.getItemTarget("planks", 1);
-        return CraftingRecipe.newShapedRecipe(new ItemTarget[]{w, w, w, p, p, p, null, null, null}, 1);
-    }
 
     @Override
     protected boolean shouldAvoidPickingUp(AltoClef mod) {

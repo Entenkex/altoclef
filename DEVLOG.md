@@ -16,6 +16,12 @@ Open findings that are known but not fixed yet are listed at the end.
 
 ## 2026-11-28
 
+### Nether bricks block was "crafted" from and into the nether brick item
+**Found:** Converting the hand-written recipes to the registry (step R, `feature/recipe-cleanup`).
+**Cause:** `CollectNetherBricksTask` built a 2x2 recipe of `nether_brick` items with output `NETHER_BRICK`
+(the item) instead of `NETHER_BRICKS` (the block it is supposed to collect).
+**Fix:** The task now takes the registry recipe for `nether_bricks` that uses `nether_brick`.
+
 ### `@get iron_pickaxe` crashed the game (stack overflow) after ~90 s
 **Found:** First in-game test of the decision log (`feature/decision-log`): the session log showed ~2000
 `task_start` lines and the same ~15 tasks 134 times nested; ticks dropped to 8/s, then `Task.stop` overflowed

@@ -1,6 +1,5 @@
 package adris.altoclef.tasks.resources;
 
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import net.minecraft.item.Item;
@@ -12,12 +11,8 @@ public abstract class CraftWithMatchingWoolTask extends CraftWithMatchingMateria
     private final Function<ItemHelper.ColorfulItems, Item> getMajorityMaterial;
     private final Function<ItemHelper.ColorfulItems, Item> getTargetItem;
 
-    public CraftWithMatchingWoolTask(ItemTarget target, Function<ItemHelper.ColorfulItems, Item> getMajorityMaterial, Function<ItemHelper.ColorfulItems, Item> getTargetItem, adris.altoclef.util.RegistryCrafting.MatchingRecipe recipe) {
-        this(target, getMajorityMaterial, getTargetItem, recipe.recipe(), recipe.sameMask());
-    }
-
-    public CraftWithMatchingWoolTask(ItemTarget target, Function<ItemHelper.ColorfulItems, Item> getMajorityMaterial, Function<ItemHelper.ColorfulItems, Item> getTargetItem, CraftingRecipe recipe, boolean[] sameMask) {
-        super(target, recipe, sameMask);
+    public CraftWithMatchingWoolTask(ItemTarget target, Function<ItemHelper.ColorfulItems, Item> getMajorityMaterial, Function<ItemHelper.ColorfulItems, Item> getTargetItem, adris.altoclef.util.RegistryCrafting.MatchingRecipe recipe /* null: no recipe in this version */) {
+        super(target, recipe);
         this.getMajorityMaterial = getMajorityMaterial;
         this.getTargetItem = getTargetItem;
     }

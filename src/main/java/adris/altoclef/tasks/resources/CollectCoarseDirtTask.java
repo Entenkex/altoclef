@@ -43,9 +43,7 @@ public class CollectCoarseDirtTask extends ResourceTask {
             return new MineAndCollectTask(new ItemTarget(Items.COARSE_DIRT), new Block[]{Blocks.COARSE_DIRT}, MiningRequirement.HAND).forceDimension(Dimension.OVERWORLD);
         } else {
             int target = _count;
-            ItemTarget d = new ItemTarget(Items.DIRT, 1);
-            ItemTarget g = new ItemTarget(Items.GRAVEL, 1);
-            return new CraftInInventoryTask(new RecipeTarget(Items.COARSE_DIRT, target, CraftingRecipe.newShapedRecipe("coarse_dirt", new ItemTarget[]{d, g, g, d}, 4)));
+            return RegistryCrafting.craftTaskUsing(Items.COARSE_DIRT, target, Items.GRAVEL);
         }
     }
 

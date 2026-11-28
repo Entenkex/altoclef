@@ -189,20 +189,20 @@ public class BeatMinecraftTask extends Task {
                 new DistanceItemPriorityCalculator(25_000, 25_000, 5, getTargetBeds(mod), getTargetBeds(mod))
         ));
 
-        gatherResources.add(new CraftItemPriorityTask(200, getRecipeTarget(Items.SHIELD),
+        gatherResources.add(new CraftItemPriorityTask(200, getCraftTarget(Items.SHIELD),
                 a -> itemStorage.hasItem(Items.IRON_INGOT)
         ));
 
-        gatherResources.add(new CraftItemPriorityTask(300, mod.getCraftingRecipeTracker().getFirstRecipeTarget(Items.BUCKET, 2),
+        gatherResources.add(new CraftItemPriorityTask(300, getCraftTarget(Items.BUCKET, 2),
                 a -> itemStorage.getItemCount(Items.IRON_INGOT) >= 6)
         );
 
-        gatherResources.add(new CraftItemPriorityTask(100, getRecipeTarget(Items.FLINT_AND_STEEL),
+        gatherResources.add(new CraftItemPriorityTask(100, getCraftTarget(Items.FLINT_AND_STEEL),
                 a -> itemStorage.hasItem(Items.IRON_INGOT) && itemStorage.hasItem(Items.FLINT)
         ));
 
-        gatherResources.add(new CraftItemPriorityTask(330, getRecipeTarget(Items.DIAMOND_SWORD), a -> itemStorage.getItemCount(Items.DIAMOND) >= 2 && StorageHelper.miningRequirementMet(MiningRequirement.DIAMOND)));
-        gatherResources.add(new CraftItemPriorityTask(400, getRecipeTarget(Items.GOLDEN_HELMET), a -> itemStorage.getItemCount(Items.GOLD_INGOT) >= 5));
+        gatherResources.add(new CraftItemPriorityTask(330, getCraftTarget(Items.DIAMOND_SWORD), a -> itemStorage.getItemCount(Items.DIAMOND) >= 2 && StorageHelper.miningRequirementMet(MiningRequirement.DIAMOND)));
+        gatherResources.add(new CraftItemPriorityTask(400, getCraftTarget(Items.GOLDEN_HELMET), a -> itemStorage.getItemCount(Items.GOLD_INGOT) >= 5));
 
         addSleepTask(mod);
 
@@ -444,17 +444,13 @@ public class BeatMinecraftTask extends Task {
         ));
     }
 
-    // FIXME again, this is stupid.. but without a rewrite I cant use CraftingRecipeTracker due to the fact some recipes arent catalogued :')
-    private RecipeTarget getRecipeTarget(Item item) {
-        ResourceTask task = TaskCatalogue.getItemTask(item, 1);
-        if (task instanceof CraftInTableTask craftInTableTask) {
-            return craftInTableTask.getRecipeTargets()[0];
-        } else if (task instanceof CraftInInventoryTask craftInInventoryTask) {
-            return craftInInventoryTask.getRecipeTarget();
-        }
+    private CraftTarget getCraftTarget(Item item) {
+        return getCraftTarget(item, 1);
+    }
 
-        throw new IllegalStateException("Item isn't cataloged");
-        //  return mod.getCraftingRecipeTracker().getFirstRecipeTarget(item, 1);
+    private CraftTarget getCraftTarget(Item item, int count) {
+        return adris.altoclef.util.RegistryCrafting.craftTarget(item, count)
+                .orElseThrow(() -> new IllegalStateException("No crafting recipe for " + item));
     }
 
     private void addPickupImportantItemsTask(AltoClef mod) {
@@ -662,12 +658,12 @@ public class BeatMinecraftTask extends Task {
                 ItemTarget.of(Items.STONE_AXE, Items.STONE_SWORD, Items.STONE_SHOVEL, Items.STONE_HOE)
         ));
 
-        gatherResources.add(new CraftItemPriorityTask(300, getRecipeTarget(Items.STONE_SWORD),
+        gatherResources.add(new CraftItemPriorityTask(300, getCraftTarget(Items.STONE_SWORD),
                 a -> StorageHelper.miningRequirementMet(MiningRequirement.STONE)
                         && !mod.getItemStorage().hasItem(Items.DIAMOND_SWORD, Items.IRON_SWORD)
         ));
 
-        gatherResources.add(new CraftItemPriorityTask(300, getRecipeTarget(Items.STONE_AXE),
+        gatherResources.add(new CraftItemPriorityTask(300, getCraftTarget(Items.STONE_AXE),
                 a -> StorageHelper.miningRequirementMet(MiningRequirement.STONE)
                         && !mod.getItemStorage().hasItem(Items.DIAMOND_AXE, Items.IRON_AXE)
         ));
@@ -679,9 +675,9 @@ public class BeatMinecraftTask extends Task {
      */
 
     private void addDiamondArmorTasks(AltoClef mod) {
-        gatherResources.add(new CraftItemPriorityTask(350, getRecipeTarget(Items.DIAMOND_CHESTPLATE), a -> mod.getItemStorage().getItemCount(Items.DIAMOND) >= 8));
-        gatherResources.add(new CraftItemPriorityTask(300, getRecipeTarget(Items.DIAMOND_LEGGINGS), a -> mod.getItemStorage().getItemCount(Items.DIAMOND) >= 7));
-        gatherResources.add(new CraftItemPriorityTask(220, getRecipeTarget(Items.DIAMOND_BOOTS), a -> mod.getItemStorage().getItemCount(Items.DIAMOND) >= 5));
+        gatherResources.add(new CraftItemPriorityTask(350, getCraftTarget(Items.DIAMOND_CHESTPLATE), a -> mod.getItemStorage().getItemCount(Items.DIAMOND) >= 8));
+        gatherResources.add(new CraftItemPriorityTask(300, getCraftTarget(Items.DIAMOND_LEGGINGS), a -> mod.getItemStorage().getItemCount(Items.DIAMOND) >= 7));
+        gatherResources.add(new CraftItemPriorityTask(220, getCraftTarget(Items.DIAMOND_BOOTS), a -> mod.getItemStorage().getItemCount(Items.DIAMOND) >= 5));
     }
 
     private void addPickaxeTasks(AltoClef mod) {
@@ -689,7 +685,7 @@ public class BeatMinecraftTask extends Task {
                 a -> !(mod.getItemStorage().hasItem(Items.WOODEN_PICKAXE, Items.STONE_PICKAXE, Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE)),
                 ItemTarget.of(Items.WOODEN_PICKAXE)));
 
-        gatherResources.add(new RecraftableItemPriorityTask(410, 10_000, getRecipeTarget(Items.STONE_PICKAXE),
+        gatherResources.add(new RecraftableItemPriorityTask(410, 10_000, getCraftTarget(Items.STONE_PICKAXE),
                 a -> {
                     List<Slot> list = mod.getItemStorage().getSlotsWithItemPlayerInventory(false);
                     boolean hasSafeIronPick = false;
@@ -705,11 +701,11 @@ public class BeatMinecraftTask extends Task {
                     return StorageHelper.miningRequirementMet(MiningRequirement.WOOD) && !mod.getItemStorage().hasItem(Items.STONE_PICKAXE) && !hasSafeIronPick && !mod.getItemStorage().hasItem(Items.DIAMOND_PICKAXE);
                 }));
 
-        gatherResources.add(new CraftItemPriorityTask(420, getRecipeTarget(Items.IRON_PICKAXE),
+        gatherResources.add(new CraftItemPriorityTask(420, getCraftTarget(Items.IRON_PICKAXE),
                 a -> !mod.getItemStorage().hasItem(Items.IRON_PICKAXE, Items.DIAMOND_PICKAXE) && mod.getItemStorage().getItemCount(Items.IRON_INGOT) >= 3));
 
 
-        gatherResources.add(new CraftItemPriorityTask(430, getRecipeTarget(Items.DIAMOND_PICKAXE), a -> mod.getItemStorage().getItemCount(Items.DIAMOND) >= 3));
+        gatherResources.add(new CraftItemPriorityTask(430, getCraftTarget(Items.DIAMOND_PICKAXE), a -> mod.getItemStorage().getItemCount(Items.DIAMOND) >= 3));
     }
 
     /**

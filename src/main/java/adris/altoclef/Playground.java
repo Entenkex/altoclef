@@ -206,11 +206,8 @@ public class Playground {
                         sleepSec(1);
                     }
 
-                    Item[] c = new Item[]{Items.COBBLESTONE};
-                    Item[] s = new Item[]{Items.STICK};
-                    CraftingRecipe recipe = CraftingRecipe.newShapedRecipe("test pickaxe", new Item[][]{c, c, c, null, s, null, null, s, null}, 1);
-
-                    mod.runUserTask(new CraftGenericManuallyTask(new RecipeTarget(Items.STONE_PICKAXE, 1, recipe)));
+                    adris.altoclef.util.RegistryCrafting.craftTarget(Items.STONE_PICKAXE, 1)
+                            .ifPresent(recipe -> mod.runUserTask(new CraftGenericManuallyTask(recipe)));
                     /*
                     Item toEquip = Items.BUCKET;//Items.AIR;
                     Slot target = PlayerInventorySlot.getEquipSlot(EquipmentSlot.MAINHAND);

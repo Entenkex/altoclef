@@ -1,6 +1,7 @@
 # Unified recipe model (roadmap step 2) — draft
 
-Status: **design agreed**; steps 1 and 2 implemented. Branch `feature/recipes`.
+Status: **implemented** up to step 5 (step 5 = step R of `docs/task-architecture.md`, branch `feature/recipe-cleanup`);
+step 6 open. Crafting tasks use `util/CraftTarget` (registry recipe + grid + count).
 
 ## 1. What exists today
 
@@ -120,7 +121,8 @@ ingots/blocks, glass, stone, charcoal, …).
    the imported recipe id → `JankCraftingRecipeMapping` goes away. `CraftingHelper` fixed (real copies).
 4. **Catalogue**: crafted/smelted catalogue entries take their recipe from the registry instead of
    hand-written grids; `CraftWithMatching*` tasks become "choose recipe"; wood/colour variants come for free.
-5. **Remove** `CraftingRecipe`, `RecipeTarget`, `JankCraftingRecipeMapping`, the `shapedRecipe*` helpers.
+5. **Remove** `CraftingRecipe`, `RecipeTarget`, `JankCraftingRecipeMapping`, the `shapedRecipe*` helpers. — done:
+   replaced by `util/CraftTarget`; hand-written grids in `Collect*Task`s now come from the registry.
 6. Later: smithing and stonecutter (needs accessor mixins per version); reading data packs for 1.21.2+.
 
 ## 6. Decisions (2026-11-27)

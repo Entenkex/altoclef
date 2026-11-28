@@ -12,8 +12,7 @@ import adris.altoclef.tasks.slot.MoveInaccessibleItemToInventoryTask;
 import adris.altoclef.tasks.slot.ReceiveCraftingOutputSlotTask;
 import adris.altoclef.tasksystem.Task;
 import adris.altoclef.util.ItemTarget;
-import adris.altoclef.util.GameRecipeLookup;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.slots.PlayerSlot;
@@ -35,23 +34,23 @@ import java.util.*;
  */
 public class CraftInTableTask extends ResourceTask {
 
-    private final RecipeTarget[] targets;
+    private final CraftTarget[] targets;
 
     private final DoCraftInTableTask craftTask;
 
-    public CraftInTableTask(RecipeTarget[] targets) {
+    public CraftInTableTask(CraftTarget[] targets) {
         super(extractItemTargets(targets));
         this.targets = targets;
         craftTask = new DoCraftInTableTask(this.targets);
     }
 
-    public CraftInTableTask(RecipeTarget target, boolean collect, boolean ignoreUncataloguedSlots) {
+    public CraftInTableTask(CraftTarget target, boolean collect, boolean ignoreUncataloguedSlots) {
         super(new ItemTarget(target.getOutputItem(), target.getTargetCount()));
-        targets = new RecipeTarget[]{target};
+        targets = new CraftTarget[]{target};
         craftTask = new DoCraftInTableTask(targets, collect, ignoreUncataloguedSlots);
     }
 
-    public CraftInTableTask(RecipeTarget target) {
+    public CraftInTableTask(CraftTarget target) {
         this(target, true, true);
     }
 
@@ -61,7 +60,7 @@ public class CraftInTableTask extends ResourceTask {
      * @param recipeTargets The array of recipe targets.
      * @return The array of item targets.
      */
-    private static ItemTarget[] extractItemTargets(RecipeTarget[] recipeTargets) {
+    private static ItemTarget[] extractItemTargets(CraftTarget[] recipeTargets) {
         // Use Java streams to map each recipe target to a new item target
         return Arrays.stream(recipeTargets)
                 .map(t -> new ItemTarget(t.getOutputItem(), t.getTargetCount()))
@@ -171,7 +170,7 @@ public class CraftInTableTask extends ResourceTask {
      *
      * @return The recipe targets.
      */
-    public RecipeTarget[] getRecipeTargets() {
+    public CraftTarget[] getCraftTargets() {
         return Arrays.copyOf(targets, targets.length);
     }
 }
@@ -181,7 +180,7 @@ class DoCraftInTableTask extends DoStuffInContainerTask {
 
     private final float CRAFT_RESET_TIMER_BONUS_SECONDS = 10;
 
-    private final RecipeTarget[] _targets;
+    private final CraftTarget[] _targets;
 
     private final boolean _collect;
 
@@ -189,14 +188,14 @@ class DoCraftInTableTask extends DoStuffInContainerTask {
     private final TimerGame _craftResetTimer = new TimerGame(CRAFT_RESET_TIMER_BONUS_SECONDS);
     private int _craftCount;
 
-    public DoCraftInTableTask(RecipeTarget[] targets, boolean collect, boolean ignoreUncataloguedSlots) {
+    public DoCraftInTableTask(CraftTarget[] targets, boolean collect, boolean ignoreUncataloguedSlots) {
         super(Blocks.CRAFTING_TABLE, new ItemTarget("crafting_table"));
         _collectTask = new CollectRecipeCataloguedResourcesTask(false, targets);
         _targets = targets;
         _collect = collect;
     }
 
-    public DoCraftInTableTask(RecipeTarget[] targets) {
+    public DoCraftInTableTask(CraftTarget[] targets) {
         this(targets, true, false);
     }
 
@@ -308,7 +307,7 @@ class DoCraftInTableTask extends DoStuffInContainerTask {
             // Get the item in the craft output slot
             Item outputItem = StorageHelper.getItemStackInSlot(PlayerSlot.CRAFT_OUTPUT_SLOT).getItem();
             // Check if the output item matches any of the targets and the target count is not reached
-            for (RecipeTarget target : _targets) {
+            for (CraftTarget target : _targets) {
                 if (target.getOutputItem() == outputItem && mod.getItemStorage().getItemCount(target.getOutputItem()) < target.getTargetCount()) {
                     return new ReceiveCraftingOutputSlotTask(PlayerSlot.CRAFT_OUTPUT_SLOT, target.getTargetCount());
                 }
@@ -327,9 +326,9 @@ class DoCraftInTableTask extends DoStuffInContainerTask {
 
         // Check if there is any inaccessible item in the recipes and move it to the inventory
         if (!thisOrChildSatisfies(task -> task instanceof CraftInInventoryTask)) {
-            for (RecipeTarget target : _targets) {
-                for (int slot = 0; slot < target.getRecipe().getSlotCount(); ++slot) {
-                    ItemTarget toCheck = target.getRecipe().getSlot(slot);
+            for (CraftTarget target : _targets) {
+                for (int slot = 0; slot < target.getSlotCount(); ++slot) {
+                    ItemTarget toCheck = target.getSlot(slot);
                     if (StorageHelper.isItemInaccessibleToContainer(mod, toCheck)) {
                         return new MoveInaccessibleItemToInventoryTask(toCheck);
                     }
@@ -387,14 +386,14 @@ class DoCraftInTableTask extends DoStuffInContainerTask {
         }
 
         // Iterate through each target recipe
-        for (RecipeTarget target : _targets) {
+        for (CraftTarget target : _targets) {
             // Check if the output item count meets the target count
             if (mod.getItemStorage().getItemCount(target.getOutputItem()) >= target.getTargetCount()) {
                 continue;
             }
 
             // Get the recipe to send based on the target recipe and output item
-            Optional<WrappedRecipeEntry> recipeToSend = GameRecipeLookup.find(target.getRecipe(), target.getOutputItem());
+            Optional<WrappedRecipeEntry> recipeToSend = target.gameRecipe();
 
             // Get the client player entity
             ClientPlayerEntity player = MinecraftClient.getInstance().player;
@@ -459,10 +458,10 @@ class DoCraftInTableTask extends DoStuffInContainerTask {
         List<Item> result = new ArrayList<>();
 
         // Iterate over each target
-        for (RecipeTarget target : _targets) {
+        for (CraftTarget target : _targets) {
             // Iterate over each slot in the recipe
-            for (int i = 0; i < target.getRecipe().getSlotCount(); ++i) {
-                ItemTarget materialTarget = target.getRecipe().getSlot(i);
+            for (int i = 0; i < target.getSlotCount(); ++i) {
+                ItemTarget materialTarget = target.getSlot(i);
                 // Check if the material target is not null and has matches
                 if (materialTarget != null && materialTarget.getMatches() != null) {
                     // Add all the matches to the result list

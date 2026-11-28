@@ -108,16 +108,14 @@ Scope of this step: crafting + smelting (furnace, smoker, blast furnace, campfir
       fits the shopping list planner (step 4).
 - [x] 2.5a Catalogue cleanup: all recipe entries are one line, `crafted(name, item)` / `smelted(name, item)`;
       the old `shapedRecipe*`/`smelt` helpers with hand-written grids are gone (`tools`/`armor` too).
-- [ ] 2.5b Remove the backwards adapters between the new recipe model and the old crafting code. They only
-      exist so the old tasks keep working; they go away when the crafting tasks are rebuilt in step 3
-      (and the variant tasks in 2.4c / step 4):
-  - `util/LegacyRecipeAdapter` (new `Recipe` → old `CraftingRecipe` grid of `ItemTarget`s)
-  - the legacy parts of `util/RegistryCrafting` (building `CraftingRecipe`/`RecipeTarget`, `MatchingRecipe`)
-  - `util/GameRecipeLookup` (old grid → game recipe id via `RecipeComparison`; tasks should carry the recipe id)
-  - `trackers/CraftingRecipeTracker` (old lookup interface, used by `CraftingHelper`, `BeatMinecraftTask`)
-  - `util/CraftingRecipe`, `util/RecipeTarget` and their ~40 users (`Craft*Task`, squasher, `Collect*Task`)
-  - the last-resort grids (`createRecipe` + masks) in the `Collect*` variant tasks and `CollectBedTask`,
-    and the `CraftWithMatching*` tasks themselves (2.4c)
+- [x] 2.5b Remove the backwards adapters between the new recipe model and the old crafting code
+      (step R, branch `feature/recipe-cleanup`): crafting tasks work on `util/CraftTarget` (registry `Recipe` +
+      count + grid of `ItemTarget`s, recipe book via the recipe id). Removed `LegacyRecipeAdapter`,
+      `GameRecipeLookup`, `CraftingRecipeTracker`, `CraftingRecipe`, `RecipeTarget`, `CraftingRecipeVer`; the
+      hand-written grids in ~15 `Collect*Task`s and the last-resort grids of the variant tasks take their recipe
+      from the registry (`RegistryCrafting.craftTaskUsing`); `CraftingHelper.canCraftItemNow` runs on the registry
+      (`recipes/CraftableFromInventory`, tested). The variant tasks craft the chosen variant's own recipe.
+  - [ ] Left for step 3: the `CraftWithMatching*` tasks themselves (2.4c), recipe book vs. manual as strategies.
 - [ ] Later: smithing, stonecutter; reading data packs (1.21.2+ clients get no recipes from the server).
 - [ ] Later: prefer recipe variants by their result's usefulness, not only by what is in the inventory
       (e.g. suspicious stew: the flower decides the effect — regeneration/saturation instead of poison or

@@ -7,8 +7,7 @@ import adris.altoclef.tasks.slot.EnsureFreePlayerCraftingGridTask;
 import adris.altoclef.tasks.slot.ReceiveCraftingOutputSlotTask;
 import adris.altoclef.tasksystem.ITaskUsesCraftingGrid;
 import adris.altoclef.tasksystem.Task;
-import adris.altoclef.util.GameRecipeLookup;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.helpers.ItemHelper;
 import adris.altoclef.util.helpers.StorageHelper;
 import adris.altoclef.util.slots.CraftingTableSlot;
@@ -23,9 +22,9 @@ import java.util.Optional;
 
 public class CraftGenericWithRecipeBooksTask extends Task implements ITaskUsesCraftingGrid {
 
-    private final RecipeTarget target;
+    private final CraftTarget target;
 
-    public CraftGenericWithRecipeBooksTask(RecipeTarget target) {
+    public CraftGenericWithRecipeBooksTask(CraftTarget target) {
         this.target = target;
     }
 
@@ -134,7 +133,7 @@ public class CraftGenericWithRecipeBooksTask extends Task implements ITaskUsesCr
             }
         }
 
-        Optional<WrappedRecipeEntry> recipeToSend = GameRecipeLookup.find(target.getRecipe(), target.getOutputItem());
+        Optional<WrappedRecipeEntry> recipeToSend = target.gameRecipe();
         if (recipeToSend.isPresent()) {
             if (mod.getSlotHandler().canDoSlotAction()) {
                 ClientPlayerEntity player = MinecraftClient.getInstance().player;

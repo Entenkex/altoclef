@@ -70,7 +70,6 @@ public class AltoClef implements ModInitializer {
     private BlockScanner blockScanner;
     private SimpleChunkTracker chunkTracker;
     private MiscBlockTracker miscBlockTracker;
-    private CraftingRecipeTracker craftingRecipeTracker;
     private adris.altoclef.trackers.RecipeRegistryTracker recipeRegistryTracker;
     // Renderers
     private CommandStatusOverlay commandStatusOverlay;
@@ -144,7 +143,6 @@ public class AltoClef implements ModInitializer {
         blockScanner = new BlockScanner(this);
         chunkTracker = new SimpleChunkTracker(this);
         miscBlockTracker = new MiscBlockTracker(this);
-        craftingRecipeTracker = new CraftingRecipeTracker(trackerManager);
         recipeRegistryTracker = new adris.altoclef.trackers.RecipeRegistryTracker(trackerManager);
 
         // Renderers
@@ -408,9 +406,6 @@ public class AltoClef implements ModInitializer {
         return recipeRegistryTracker;
     }
 
-    public CraftingRecipeTracker getCraftingRecipeTracker() {
-        return craftingRecipeTracker;
-    }
 
     /**
      * Tracks blocks and their positions - better version of BlockTracker

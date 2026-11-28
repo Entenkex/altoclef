@@ -9,10 +9,9 @@ import adris.altoclef.multiversion.ToolMaterialVer;
 import adris.altoclef.multiversion.versionedfields.Blocks;
 import adris.altoclef.tasks.CraftInInventoryTask;
 import adris.altoclef.trackers.storage.ItemStorageTracker;
-import adris.altoclef.util.CraftingRecipe;
 import adris.altoclef.util.ItemTarget;
 import adris.altoclef.util.MiningRequirement;
-import adris.altoclef.util.RecipeTarget;
+import adris.altoclef.util.CraftTarget;
 import adris.altoclef.util.slots.CraftingTableSlot;
 import adris.altoclef.util.slots.CursorSlot;
 import adris.altoclef.util.slots.PlayerSlot;
@@ -506,10 +505,10 @@ public class StorageHelper {
      * Returns whether we have the items in our inventory (or currently crafting)
      */
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
-    public static boolean hasRecipeMaterialsOrTarget(AltoClef mod, RecipeTarget... targets) {
+    public static boolean hasRecipeMaterialsOrTarget(AltoClef mod, CraftTarget... targets) {
         HashMap<Integer, Integer> slotUsedCounts = new HashMap<>();
-        for (RecipeTarget target : targets) {
-            CraftingRecipe recipe = target.getRecipe();
+        for (CraftTarget target : targets) {
+            CraftTarget recipe = target;
             int need = 0;
             if (target.getOutputItem() != null) {
                 need = target.getTargetCount();
@@ -517,7 +516,7 @@ public class StorageHelper {
             }
             // need holds how many items we need to CRAFT
             // However, a crafting recipe can output more than 1 of an item.
-            int materialsPerSlotNeeded = (int) Math.ceil((float) need / target.getRecipe().outputCount());
+            int materialsPerSlotNeeded = (int) Math.ceil((float) need / target.outputCount());
             for (int i = 0; i < materialsPerSlotNeeded; ++i) {
                 for (int slot = 0; slot < recipe.getSlotCount(); ++slot) {
                     ItemTarget needs = recipe.getSlot(slot);
@@ -601,7 +600,7 @@ public class StorageHelper {
         if (StorageHelper.isPlayerInventoryOpen() && withItem.matches(getItemStackInCursorSlot().getItem())) {
             if (!mod.getUserTaskChain().getCurrentTask().thisOrChildSatisfies(task -> {
                 if (task instanceof CraftInInventoryTask invCraft) {
-                    return withItem.matches(invCraft.getRecipeTarget().getOutputItem());
+                    return withItem.matches(invCraft.getCraftTarget().getOutputItem());
                 }
                 return false;
             })) {
